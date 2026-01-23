@@ -64,10 +64,11 @@ jobs:
     - name: Package Web App
       run: |
         cd web
-        mkdir -p package
+        mkdir -p package/.next/static
+        mkdir -p package/public
         cp -r .next/standalone/* package/
-        cp -r public package/public
-        cp -r .next/static package/.next/static
+        cp -r public/* package/public/
+        cp -r .next/static/* package/.next/static/
         cd package
         zip -r ../../web.zip .
         
