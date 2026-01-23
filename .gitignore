@@ -210,3 +210,15 @@ __marimo__/
 
 # Azure Functions
 .python_packages/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+.terraform.lock.hcl
+.terraform.tfstate.lock.info
+
+# Local Tools
+tools/

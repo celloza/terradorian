@@ -4,7 +4,7 @@ from azure.cosmos import CosmosClient, PartitionKey
 def get_container(container_name: str, partition_key_path: str = "/id"):
     connection_string = os.environ["CosmosDbConnectionSetting"]
     client = CosmosClient.from_connection_string(connection_string, connection_verify=False)
-    database = client.get_database_client("TerradorianDB")
+    database = client.create_database_if_not_exists(id="TerradorianDB")
     
     # helper to ensure container existence
     try:

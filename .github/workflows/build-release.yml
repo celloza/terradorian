@@ -1,0 +1,99 @@
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-api:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        cd api
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install -r requirements.txt
+        
+    # Zip the API folder excluding venv/git etc.
+    # For Python Functions, we typically pipe to a build folder or just zip the src.
+    # Best practice: use func pack or just zip the content.
+    - name: Zip API
+      run: |
+        cd api
+        zip -r ../api.zip . -x ".venv/*" "__pycache__/*" "*.git*"
+        
+    - name: Upload API Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: api
+        path: api.zip
+
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Install dependencies
+      run: |
+        cd web
+        npm ci
+        
+    - name: Build
+      run: |
+        cd web
+        npm run build
+        
+    # Next.js Standalone Build
+    # output: 'standalone' creates a minimal server in .next/standalone
+    # We need to copy public/ and .next/static/ to standalone/ for it to work fully.
+    - name: Package Web App
+      run: |
+        cd web
+        mkdir -p package
+        cp -r .next/standalone/* package/
+        cp -r public package/public
+        cp -r .next/static package/.next/static
+        cd package
+        zip -r ../../web.zip .
+        
+    - name: Upload Web Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: web
+        path: web.zip
+
+  release:
+    needs: [build-api, build-web]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download API Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: api
+    
+    - name: Download Web Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: web
+        
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          api.zip
+          web.zip

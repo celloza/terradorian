@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label"
 import { Plus, FolderOpen } from "lucide-react"
 import Link from "next/link"
+import { TerradorianLogo } from "@/components/terradorian-logo"
 
 export default function ProjectsPage() {
     const { data: projects, error, mutate } = useSWR("/list_projects", fetcher)
@@ -37,8 +38,11 @@ export default function ProjectsPage() {
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-5xl space-y-8">
                 <div className="text-center space-y-2">
-                    <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xl font-bold mx-auto mb-4 shadow-lg">
+                    {/* <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xl font-bold mx-auto mb-4 shadow-lg">
                         TD
+                    </div> */}
+                    <div className="relative w-24 h-24 flex items-center justify-center mx-auto mb-4">
+                        <TerradorianLogo />
                     </div>
                     <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl text-zinc-900 dark:text-zinc-50">Welcome to Terradorian</h1>
                     <p className="text-lg text-muted-foreground max-w-2xl mx-auto">

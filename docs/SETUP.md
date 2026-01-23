@@ -35,6 +35,13 @@ func start
 ```
 The backend runs on `http://localhost:7071`.
 
+### Core Tools Compatibility Note (Python 3.11/3.12)
+If your system's global `func` tool is outdated (v4.0.x) and doesn't support Python 3.11+, you can use the local `tools/` directory setup:
+```powershell
+..\tools\node_modules\.bin\func start
+```
+
+
 ## 3. Frontend Setup (`web/`)
 
 ```powershell

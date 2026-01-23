@@ -196,7 +196,7 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         if 'resource_changes' in tf_plan:
             refined_changes = []
             for rc in tf_plan['resource_changes']:
-                change_data = rc.get('change', {})
+                change_data = rc.get('change') or {}
                 
                 # Extract Resource Group Name
                 rg_name = change_data.get('after', {}).get('resource_group_name')
