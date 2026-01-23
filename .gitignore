@@ -209,6 +209,7 @@ __marimo__/
 
 # Samples
 samples/
+manual_tests/
 
 # Azure Functions
 .python_packages/
