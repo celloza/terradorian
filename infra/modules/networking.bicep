@@ -41,7 +41,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-07-01' = {
 
 // Private DNS Zones
 var dnsZones = [
-  'privatelink${az.environment().suffixes.storage}'
+  'privatelink.blob.${az.environment().suffixes.storage}'
   'privatelink.documents.azure.com'
   'privatelink${az.environment().suffixes.keyvaultDns}'
 ]
