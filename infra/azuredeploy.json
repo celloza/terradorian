@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "11279401901114201864"
+      "templateHash": "682745730965177336"
     }
   },
   "parameters": {
@@ -74,7 +74,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "11067121310086218910"
+              "templateHash": "7079538317247811869"
             }
           },
           "parameters": {
@@ -93,9 +93,9 @@
             "funcSubnetName": "snet-func",
             "peSubnetName": "snet-pe",
             "dnsZones": [
-              "[format('privatelink.blob.{0}', environment().suffixes.storage)]",
+              "[format('privatelink{0}', environment().suffixes.storage)]",
               "privatelink.documents.azure.com",
-              "[format('privatelink.{0}', environment().suffixes.keyvaultDns)]"
+              "[format('privatelink{0}', environment().suffixes.keyvaultDns)]"
             ]
           },
           "resources": [
