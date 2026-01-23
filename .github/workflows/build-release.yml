@@ -21,14 +21,14 @@ jobs:
       run: |
         cd api
         python -m pip install --upgrade pip
-        mkdir -p .python_packages/lib/site-packages
-        pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+        # Install directly to root to ensure sys.path finds them
+        pip install -r requirements.txt --target="."
         
     # Zip the API folder including the installed packages
     - name: Zip API
       run: |
         cd api
-        zip -r ../api.zip . -x ".venv/*" "__pycache__/*" "*.git*"
+        zip -r ../api.zip . -x ".venv/*" "__pycache__/*" "*.git*" "*.pyc"
         
     - name: Upload API Artifact
       uses: actions/upload-artifact@v4
