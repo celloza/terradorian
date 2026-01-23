@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "9866441582427274086"
+      "templateHash": "8110364566500805065"
     }
   },
   "parameters": {
@@ -913,6 +913,9 @@
           },
           "serverFarmId": {
             "value": "[resourceId('Microsoft.Web/serverfarms', format('asp-terradorian-{0}', parameters('environment')))]"
+          },
+          "apiUrl": {
+            "value": "[format('https://{0}/api', reference(resourceId('Microsoft.Resources/deployments', 'function'), '2025-04-01').outputs.functionAppDefaultHostName.value)]"
           }
         },
         "template": {
@@ -922,7 +925,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "9427881657109012754"
+              "templateHash": "467071563999461243"
             }
           },
           "parameters": {
@@ -936,6 +939,9 @@
               "type": "object"
             },
             "serverFarmId": {
+              "type": "string"
+            },
+            "apiUrl": {
               "type": "string"
             }
           },
@@ -961,6 +967,10 @@
                     {
                       "name": "WEBSITE_RUN_FROM_PACKAGE",
                       "value": "https://github.com/celloza/terradorian/releases/latest/download/web.zip"
+                    },
+                    {
+                      "name": "API_URL",
+                      "value": "[parameters('apiUrl')]"
                     }
                   ]
                 },
@@ -981,6 +991,7 @@
         }
       },
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'function')]",
         "[resourceId('Microsoft.Web/serverfarms', format('asp-terradorian-{0}', parameters('environment')))]"
       ]
     }

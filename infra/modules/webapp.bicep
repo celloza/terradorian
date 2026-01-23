@@ -4,6 +4,8 @@ param tags object
 param serverFarmId string
 // param webSubnetId string // Optional if we want VNet integration later
 
+param apiUrl string
+
 var webAppName = 'web-terradorian-${environment}'
 
 resource webApp 'Microsoft.Web/sites@2022-09-01' = {
@@ -22,6 +24,10 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
           value: 'https://github.com/celloza/terradorian/releases/latest/download/web.zip'
+        }
+        {
+          name: 'API_URL'
+          value: apiUrl
         }
       ]
     }

@@ -100,6 +100,7 @@ module webapp 'modules/webapp.bicep' = {
     environment: environment
     tags: tags
     serverFarmId: serverFarm.id
+    apiUrl: 'https://${function.outputs.functionAppDefaultHostName}/api'
   }
 }
 
