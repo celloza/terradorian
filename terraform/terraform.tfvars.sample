@@ -1,0 +1,5 @@
+location            = "uksouth"
+resource_group_name = "rg-terradorian-dev-001"
+environment         = "dev"
+tenant_id           = "<guid>"
+subscription_id     = "<guid>"
