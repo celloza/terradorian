@@ -20,13 +20,11 @@ jobs:
     - name: Install dependencies
       run: |
         cd api
-        python -m venv .venv
-        source .venv/bin/activate
-        pip install -r requirements.txt
+        python -m pip install --upgrade pip
+        mkdir -p .python_packages/lib/site-packages
+        pip install -r requirements.txt --target=".python_packages/lib/site-packages"
         
-    # Zip the API folder excluding venv/git etc.
-    # For Python Functions, we typically pipe to a build folder or just zip the src.
-    # Best practice: use func pack or just zip the content.
+    # Zip the API folder including the installed packages
     - name: Zip API
       run: |
         cd api
