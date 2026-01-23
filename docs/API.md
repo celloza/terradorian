@@ -45,5 +45,18 @@ Deletes a specific plan from Cosmos DB (Note: Currently does not delete from Blo
 
 *   `POST /create_project`: Create a new project.
 *   `POST /create_component`: Create a new component.
-*   `GET /get_projects`: List all projects.
-*   `GET /get_components/{project_id}`: List components for a project.
+*   `GET /list_projects`: List all projects.
+*   `GET /list_components?project_id={id}`: List components for a project.
+
+### Environment Management
+*   `POST /add_environment`: Add a new environment (e.g., 'staging') to a project.
+    *   Body: `{ "project_id": "...", "environment": "staging" }`
+
+### Authentication (PATs)
+*   `POST /generate_pat`: Generate a new Personal Access Token for a component.
+    *   Body: `{ "project_id": "..." }`
+    *   Returns: `{ "pat": "tdp_..." }` (One-time view).
+*   `GET /list_tokens?project_id={id}`: List active PATs (metadata only).
+*   `POST /revoke_token`: Revoke a PAT.
+    *   Body: `{ "project_id": "...", "token_id": "..." }`
+
