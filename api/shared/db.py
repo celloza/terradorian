@@ -1,9 +1,22 @@
 import os
 from azure.cosmos import CosmosClient, PartitionKey
+from azure.identity import DefaultAzureCredential
 
 def get_container(container_name: str, partition_key_path: str = "/id"):
-    connection_string = os.environ["CosmosDbConnectionSetting"]
-    client = CosmosClient.from_connection_string(connection_string, connection_verify=False)
+    conn_str = os.environ.get("CosmosDbConnectionSetting")
+    
+    if conn_str:
+        # Emulator / Key-based
+        client = CosmosClient.from_connection_string(conn_str, connection_verify=False)
+    else:
+        # Managed Identity
+        endpoint = os.environ.get("CosmosDbConnectionSetting__accountEndpoint")
+        if not endpoint:
+            raise ValueError("No Cosmos DB connection string or endpoint found")
+            
+        credential = DefaultAzureCredential()
+        client = CosmosClient(url=endpoint, credential=credential)
+
     database = client.create_database_if_not_exists(id="TerradorianDB")
     
     # helper to ensure container existence
