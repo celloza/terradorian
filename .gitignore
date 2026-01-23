@@ -207,6 +207,7 @@ marimo/_lsp/
 __marimo__/
 
 # Samples
+samples/
 
 # Azure Functions
 .python_packages/
