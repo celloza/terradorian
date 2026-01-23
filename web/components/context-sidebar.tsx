@@ -18,46 +18,49 @@ export function ContextSidebar() {
         <div className="w-64 bg-[#0F1115] text-white border-r border-[#1F2125] flex flex-col h-full pt-4">
             <div className="px-3 py-2">
                 <div className="space-y-1">
-                    <Link href={`/p/${projectId}/dashboard`}>
-                        <Button
-                            variant="ghost"
-                            className={cn(
-                                "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
-                                isActive("/dashboard") && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
-                            )}
-                        >
+                    <Button
+                        variant="ghost"
+                        asChild
+                        className={cn(
+                            "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
+                            isActive("/dashboard") && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
+                        )}
+                    >
+                        <Link href={`/p/${projectId}/dashboard`}>
                             <LayoutDashboard className="mr-3 h-4 w-4" />
                             Dashboards
-                        </Button>
-                    </Link>
-                    <Link href={`/p/${projectId}/explore`}>
-                        <Button
-                            variant="ghost"
-                            className={cn(
-                                "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
-                                isActive("/explore") && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
-                            )}
-                        >
+                        </Link>
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        asChild
+                        className={cn(
+                            "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
+                            isActive("/explore") && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
+                        )}
+                    >
+                        <Link href={`/p/${projectId}/explore`}>
                             <Compass className="mr-3 h-4 w-4" />
                             Explore
-                        </Button>
-                    </Link>
+                        </Link>
+                    </Button>
                 </div>
             </div>
 
             <div className="mt-auto px-3 py-4">
-                <Link href={`/p/${projectId}/settings`}>
-                    <Button
-                        variant="ghost"
-                        className={cn(
-                            "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
-                            isActive("/settings") && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
-                        )}
-                    >
+                <Button
+                    variant="ghost"
+                    asChild
+                    className={cn(
+                        "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
+                        isActive("/settings") && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
+                    )}
+                >
+                    <Link href={`/p/${projectId}/settings`}>
                         <Settings className="mr-3 h-4 w-4" />
                         Settings
-                    </Button>
-                </Link>
+                    </Link>
+                </Button>
             </div>
         </div>
     )
