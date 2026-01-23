@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "17449888609055698044"
+      "templateHash": "9866441582427274086"
     }
   },
   "parameters": {
@@ -608,7 +608,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "16923648828853591055"
+              "templateHash": "7985994193241388273"
             }
           },
           "parameters": {
@@ -635,7 +635,7 @@
             }
           },
           "variables": {
-            "vaultName": "[format('kv-terradorian-{0}', parameters('environment'))]",
+            "vaultName": "[format('kv-td-{0}', parameters('environment'))]",
             "peName": "[format('pe-vault-{0}', parameters('environment'))]"
           },
           "resources": [

@@ -6,7 +6,7 @@ param privateDnsZoneId string
 param principalId string
 param tenantId string
 
-var vaultName = 'kv-terradorian-${environment}'
+var vaultName = 'kv-td-${environment}'
 var peName = 'pe-vault-${environment}'
 
 resource vault 'Microsoft.KeyVault/vaults@2022-07-01' = {
