@@ -1,0 +1,278 @@
+import azure.functions as func
+import json
+import uuid
+import secrets
+import hashlib
+from datetime import datetime
+from azure.cosmos import exceptions
+from pydantic import ValidationError
+from models import CreateProjectSchema, CreateComponentSchema
+from shared.db import get_container
+
+bp = func.Blueprint()
+
+@bp.route(route="create_project", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def create_project(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        project_data = CreateProjectSchema(**req_body)
+    except (ValueError, ValidationError) as e:
+        return func.HttpResponse(f"Invalid Request: {e}", status_code=400)
+
+    doc_dict = project_data.model_dump()
+    doc_dict['id'] = str(uuid.uuid4())
+    doc_dict['created_at'] = datetime.utcnow().isoformat()
+    if not doc_dict.get('environments'):
+        doc_dict['environments'] = ["dev"]
+    
+    try:
+        container = get_container("projects", "/id")
+        container.create_item(doc_dict)
+    except Exception as e:
+         return func.HttpResponse(f"Error creating project: {e}", status_code=500)
+         
+    return func.HttpResponse(
+        body=json.dumps({"id": doc_dict['id'], "name": doc_dict['name']}),
+        status_code=201,
+        mimetype="application/json"
+    )
+
+@bp.route(route="add_environment", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def add_environment(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        project_id = req_body.get('project_id')
+        environment = req_body.get('environment')
+        if not project_id or not environment:
+             return func.HttpResponse("Missing project_id or environment", status_code=400)
+    except ValueError:
+        return func.HttpResponse("Invalid JSON", status_code=400)
+
+    try:
+        container = get_container("projects", "/id")
+        project_doc = container.read_item(item=project_id, partition_key=project_id)
+        
+        current_envs = project_doc.get('environments', [])
+        if environment not in current_envs:
+            current_envs.append(environment)
+            project_doc['environments'] = current_envs
+            container.upsert_item(project_doc)
+            
+        return func.HttpResponse(
+            body=json.dumps({"environments": current_envs}),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Project not found", status_code=404)
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="create_component", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def create_component(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        comp_data = CreateComponentSchema(**req_body)
+    except (ValueError, ValidationError) as e:
+        return func.HttpResponse(f"Invalid Request: {e}", status_code=400)
+
+    doc_dict = comp_data.model_dump()
+    doc_dict['id'] = str(uuid.uuid4())
+    doc_dict['created_at'] = datetime.utcnow().isoformat()
+    doc_dict['pat_hashes'] = []
+    
+    try:
+        container = get_container("components", "/id")
+        container.create_item(doc_dict)
+    except Exception as e:
+         return func.HttpResponse(f"Error creating component: {e}", status_code=500)
+         
+    return func.HttpResponse(
+        body=json.dumps({"id": doc_dict['id'], "name": doc_dict['name']}),
+        status_code=201,
+        mimetype="application/json"
+    )
+
+@bp.route(route="generate_pat", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def generate_pat(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        project_id = req_body.get('project_id')
+    except ValueError:
+        return func.HttpResponse("Invalid JSON", status_code=400)
+
+    if not project_id:
+        return func.HttpResponse("project_id required", status_code=400)
+
+    # Generate Token
+    random_part = secrets.token_hex(16)
+    pat = f"tdp_{project_id}_{random_part}"
+    pat_hash = hashlib.sha256(pat.encode()).hexdigest()
+    
+    try:
+        container = get_container("projects", "/id")
+        # Upsert logic to append hash
+        proj_doc = container.read_item(item=project_id, partition_key=project_id)
+        
+        # Legacy support (optional, but let's just use new tokens list)
+        if 'tokens' not in proj_doc:
+            proj_doc['tokens'] = []
+        
+        new_token = {
+            "id": str(uuid.uuid4()),
+            "hash": pat_hash,
+            "prefix": pat[:10] + "...",
+            "created_at": datetime.utcnow().isoformat()
+        }
+            
+        proj_doc['tokens'].append(new_token)
+        container.upsert_item(proj_doc)
+        
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Project not found", status_code=404)
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+    # Return raw PAT once
+    return func.HttpResponse(
+        body=json.dumps({"pat": pat, "message": "Store this token securely. It will not be shown again."}),
+        status_code=201,
+        mimetype="application/json"
+    )
+    
+@bp.route(route="list_projects", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def list_projects(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        container = get_container("projects", "/id")
+        items = list(container.query_items(
+            query="SELECT c.id, c.name, c.description, c.created_at, c.environments FROM c",
+            enable_cross_partition_query=True
+        ))
+        
+        return func.HttpResponse(
+            body=json.dumps(items),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="list_components", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def list_components(req: func.HttpRequest) -> func.HttpResponse:
+    project_id = req.params.get('project_id')
+    if not project_id:
+        return func.HttpResponse("project_id param required", status_code=400)
+        
+    try:
+        container = get_container("components", "/id")
+        items = list(container.query_items(
+            query="SELECT c.id, c.name, c.project_id FROM c WHERE c.project_id = @pid",
+            parameters=[{"name": "@pid", "value": project_id}],
+            enable_cross_partition_query=True
+        ))
+        
+        return func.HttpResponse(
+            body=json.dumps(items),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+    
+@bp.route(route="list_plans", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def list_plans(req: func.HttpRequest) -> func.HttpResponse:
+    project_id = req.params.get('project_id')
+    environment = req.params.get('environment')
+    
+    try:
+        container = get_container("plans", "/id")
+        
+        query = "SELECT * FROM c"
+        where_clauses = []
+        parameters = []
+        
+        if project_id:
+            where_clauses.append("c.project_id = @pid")
+            parameters.append({"name": "@pid", "value": project_id})
+            
+        if environment:
+            where_clauses.append("c.environment = @env")
+            parameters.append({"name": "@env", "value": environment})
+            
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+            
+        query += " ORDER BY c.timestamp DESC OFFSET 0 LIMIT 100"
+            
+        items = list(container.query_items(
+            query=query,
+            parameters=parameters,
+            enable_cross_partition_query=True
+        ))
+        
+        return func.HttpResponse(
+            body=json.dumps(items),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="list_tokens", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def list_tokens(req: func.HttpRequest) -> func.HttpResponse:
+    project_id = req.params.get('project_id')
+    if not project_id:
+        return func.HttpResponse("project_id param required", status_code=400)
+        
+    try:
+        container = get_container("projects")
+        proj_doc = container.read_item(item=project_id, partition_key=project_id)
+        
+        tokens = proj_doc.get("tokens", [])
+        # Return only safe metadata
+        safe_tokens = [
+            {"id": t["id"], "prefix": t.get("prefix", "???"), "created_at": t.get("created_at")} 
+            for t in tokens
+        ]
+        
+        return func.HttpResponse(
+            body=json.dumps(safe_tokens),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Project not found", status_code=404)
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="revoke_token", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def revoke_token(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        project_id = req_body.get('project_id')
+        token_id = req_body.get('token_id')
+    except ValueError:
+        return func.HttpResponse("Invalid JSON", status_code=400)
+
+    if not project_id or not token_id:
+        return func.HttpResponse("project_id and token_id required", status_code=400)
+
+    try:
+        container = get_container("projects")
+        proj_doc = container.read_item(item=project_id, partition_key=project_id)
+        
+        tokens = proj_doc.get("tokens", [])
+        new_tokens = [t for t in tokens if t["id"] != token_id]
+        
+        if len(new_tokens) == len(tokens):
+             return func.HttpResponse("Token not found", status_code=404)
+             
+        proj_doc['tokens'] = new_tokens
+        container.upsert_item(proj_doc)
+        
+        return func.HttpResponse(status_code=204)
+        
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Project not found", status_code=404)
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)

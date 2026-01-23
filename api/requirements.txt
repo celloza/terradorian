@@ -1,0 +1,4 @@
+azure-functions
+pydantic
+azure-cosmos
+azure-storage-blob
