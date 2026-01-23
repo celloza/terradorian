@@ -78,7 +78,7 @@ export default function ProjectsPage() {
                     </Dialog>
                 </div>
 
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className={`grid gap-6 ${projects.length === 1 ? 'max-w-md mx-auto grid-cols-1' : 'md:grid-cols-2 lg:grid-cols-3'}`}>
                     {projects.map((project: any) => (
                         <Link href={`/p/${project.id}/dashboard`} key={project.id} className="group">
                             <Card className="hover:shadow-lg transition-all cursor-pointer h-full border-zinc-200 dark:border-zinc-800 group-hover:border-blue-500/50">
