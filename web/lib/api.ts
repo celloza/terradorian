@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:7071/api";
+const API_BASE = "/api";
 
 export const fetcher = (url: string) => fetch(`${API_BASE}${url}`).then((res) => res.json());
 
