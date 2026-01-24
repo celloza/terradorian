@@ -27,3 +27,8 @@ class ManualIngestSchema(BaseModel):
     component_id: str
     environment: str
     terraform_plan: Dict[str, Any]
+
+class AuthSettingsSchema(BaseModel):
+    client_id: str
+    client_secret: str
+    tenant_id: str

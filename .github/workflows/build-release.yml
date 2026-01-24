@@ -20,12 +20,9 @@ jobs:
     - name: Install dependencies
       run: |
         cd api
-        python -m pip install --upgrade pip
-        # Install directly to root to ensure sys.path finds them
-        pip install -r requirements.txt --target="."
-        # Remove azure-functions to avoid conflict with worker runtime
-        rm -rf azure/functions
-        rm -rf azure_functions-*.dist-info
+        # Install dependencies to .python_packages (Standard Azure Functions structure)
+        mkdir -p .python_packages/lib/site-packages
+        pip install -r requirements.txt --target=".python_packages/lib/site-packages"
         
     # Zip the API folder including the installed packages
     - name: Zip API

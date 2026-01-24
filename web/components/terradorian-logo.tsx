@@ -1,6 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 export function TerradorianLogo({ className }: { className?: string }) {
     return (
