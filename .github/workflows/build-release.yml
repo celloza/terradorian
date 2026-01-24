@@ -23,11 +23,15 @@ jobs:
         # Install dependencies to .python_packages (Standard Azure Functions structure)
         mkdir -p .python_packages/lib/site-packages
         pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+        # Remove azure-functions to avoid conflict with worker runtime
+        rm -rf .python_packages/lib/site-packages/azure/functions
+        rm -rf .python_packages/lib/site-packages/azure_functions-*.dist-info
         
     # Zip the API folder including the installed packages
     - name: Zip API
       run: |
         cd api
+        ls -la
         zip -r ../api.zip . -x ".venv/*" "__pycache__/*" "*.git*" "*.pyc"
         
     - name: Upload API Artifact
