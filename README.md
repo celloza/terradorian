@@ -10,6 +10,7 @@ Terradorian is a comprehensive dashboard platform designed to manage and visuali
 *   **Visual Dashboard**: Interactive graphs showing drift trends and resource change breakdowns.
 *   **API Integration**: Exposes an API to allow for CICD solutions to push plan files to the dashboard for analysis.
 *   **Resource Explorer**: Explore resources and their attributes.
+*   **Authentication**: Built-in authentication support for Local Owner credentials and Microsoft Entra ID (SSO).
 
 ## 📚 Documentation
 

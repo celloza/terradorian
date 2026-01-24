@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { ChevronsUpDown, Check, Container, Plus } from "lucide-react"
+import { TerradorianLogo } from "@/components/terradorian-logo"
 
 export function EnvironmentSwitcher() {
     const params = useParams()
@@ -58,12 +59,16 @@ export function EnvironmentSwitcher() {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="w-[160px] justify-between text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-700 bg-zinc-900/50">
-                        <span className="flex items-center gap-2 truncate">
-                            <Container className="h-3 w-3" />
-                            <span className="text-xs">{currentEnv}</span>
-                        </span>
-                        <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                    <Button variant="ghost" size="sm" className="w-[160px] justify-between text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-700 bg-zinc-900/50 p-2" asChild>
+                        <div role="button" tabIndex={0} className="flex items-center w-full">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className="relative h-5 w-5 shrink-0 flex items-center justify-center">
+                                    <TerradorianLogo />
+                                </div>
+                                <span className="text-xs truncate">{currentEnv}</span>
+                            </div>
+                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                        </div>
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-[200px] bg-zinc-900 text-white border-zinc-800">
