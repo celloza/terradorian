@@ -23,6 +23,9 @@ jobs:
         python -m pip install --upgrade pip
         # Install directly to root to ensure sys.path finds them
         pip install -r requirements.txt --target="."
+        # Remove azure-functions to avoid conflict with worker runtime
+        rm -rf azure/functions
+        rm -rf azure_functions-*.dist-info
         
     # Zip the API folder including the installed packages
     - name: Zip API
