@@ -39,8 +39,6 @@ export default function ProjectContextLayout({
             <TopNavBar>
                 <div className="flex items-center gap-2">
                     <ProjectSwitcher />
-                    <span className="text-zinc-600">/</span>
-                    <EnvironmentSwitcher />
                 </div>
             </TopNavBar>
 
