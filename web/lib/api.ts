@@ -88,3 +88,23 @@ export const listPlans = (project_id: string, environment?: string) => {
     }
     return url;
 };
+
+export const deleteComponent = async (component_id: string, project_id: string) => {
+    const res = await fetch(`${API_BASE}/delete_component`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ component_id, project_id }),
+    });
+    if (!res.ok) throw new Error("Failed to delete component");
+    return true;
+};
+
+export const deleteEnvironment = async (project_id: string, environment: string) => {
+    const res = await fetch(`${API_BASE}/delete_environment`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id, environment }),
+    });
+    if (!res.ok) throw new Error("Failed to delete environment");
+    return true;
+};

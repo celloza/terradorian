@@ -274,5 +274,132 @@ def revoke_token(req: func.HttpRequest) -> func.HttpResponse:
         
     except exceptions.CosmosResourceNotFoundError:
         return func.HttpResponse("Project not found", status_code=404)
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="delete_component", auth_level=func.AuthLevel.ANONYMOUS, methods=["DELETE"])
+def delete_component(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        component_id = req_body.get('component_id')
+        project_id = req_body.get('project_id')
+    except ValueError:
+        return func.HttpResponse("Invalid JSON", status_code=400)
+
+    if not component_id or not project_id:
+        return func.HttpResponse("component_id and project_id required", status_code=400)
+
+    try:
+        # 1. Delete Component
+        comp_container = get_container("components", "/id")
+        try:
+            comp_container.delete_item(item=component_id, partition_key=component_id)
+        except exceptions.CosmosResourceNotFoundError:
+            return func.HttpResponse("Component not found", status_code=404)
+
+        # 2. Cascade Delete Plans
+        # Note: In a real prod system, this might be done via a background job or stored procedure for atomicity
+        plans_container = get_container("plans", "/id")
+        plans = list(plans_container.query_items(
+            query="SELECT c.id FROM c WHERE c.component_id = @cid",
+            parameters=[{"name": "@cid", "value": component_id}],
+            enable_cross_partition_query=True
+        ))
+        
+        for plan in plans:
+            try:
+                plans_container.delete_item(item=plan['id'], partition_key=plan['id'])
+            except exceptions.CosmosResourceNotFoundError:
+                continue
+
+        return func.HttpResponse(status_code=204)
+
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+@bp.route(route="delete_component", auth_level=func.AuthLevel.ANONYMOUS, methods=["DELETE"])
+def delete_component(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        component_id = req_body.get('component_id')
+        project_id = req_body.get('project_id')
+    except ValueError:
+        return func.HttpResponse("Invalid JSON", status_code=400)
+
+    if not component_id or not project_id:
+        return func.HttpResponse("component_id and project_id required", status_code=400)
+
+    try:
+        # 1. Delete Component
+        comp_container = get_container("components", "/id")
+        try:
+            comp_container.delete_item(item=component_id, partition_key=component_id)
+        except exceptions.CosmosResourceNotFoundError:
+            return func.HttpResponse("Component not found", status_code=404)
+
+        # 2. Cascade Delete Plans
+        # Note: In a real prod system, this might be done via a background job or stored procedure for atomicity
+        plans_container = get_container("plans", "/id")
+        plans = list(plans_container.query_items(
+            query="SELECT c.id FROM c WHERE c.component_id = @cid",
+            parameters=[{"name": "@cid", "value": component_id}],
+            enable_cross_partition_query=True
+        ))
+        
+        for plan in plans:
+            try:
+                plans_container.delete_item(item=plan['id'], partition_key=plan['id'])
+            except exceptions.CosmosResourceNotFoundError:
+                continue
+
+        return func.HttpResponse(status_code=204)
+
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="delete_environment", auth_level=func.AuthLevel.ANONYMOUS, methods=["DELETE"])
+def delete_environment(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        project_id = req_body.get('project_id')
+        environment = req_body.get('environment')
+    except ValueError:
+        return func.HttpResponse("Invalid JSON", status_code=400)
+
+    if not project_id or not environment:
+        return func.HttpResponse("project_id and environment required", status_code=400)
+
+    try:
+        # 1. Update Project Environments List
+        proj_container = get_container("projects", "/id")
+        project_doc = proj_container.read_item(item=project_id, partition_key=project_id)
+        
+        current_envs = project_doc.get('environments', [])
+        if environment in current_envs:
+            new_envs = [e for e in current_envs if e != environment]
+            project_doc['environments'] = new_envs
+            proj_container.upsert_item(project_doc)
+        else:
+             return func.HttpResponse("Environment not found in project", status_code=404)
+
+        # 2. Cascade Delete Plans
+        plans_container = get_container("plans", "/id")
+        plans = list(plans_container.query_items(
+            query="SELECT c.id FROM c WHERE c.project_id = @pid AND c.environment = @env",
+            parameters=[
+                {"name": "@pid", "value": project_id},
+                {"name": "@env", "value": environment}
+            ],
+            enable_cross_partition_query=True
+        ))
+        
+        for plan in plans:
+            try:
+                plans_container.delete_item(item=plan['id'], partition_key=plan['id'])
+            except exceptions.CosmosResourceNotFoundError:
+                continue
+
+        return func.HttpResponse(status_code=204)
+
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Project not found", status_code=404)
     except Exception as e:
         return func.HttpResponse(f"Error: {e}", status_code=500)
