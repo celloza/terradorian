@@ -18,7 +18,7 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
     serverFarmId: serverFarmId
     siteConfig: {
       linuxFxVersion: 'NODE|20-lts' // Next.js requires Node
-      // appCommandLine: 'node server.js' // Let default handle it or configure later
+      appCommandLine: 'node server.js' // Next.js standalone output uses server.js
       alwaysOn: true
       appSettings: [
         {
