@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import packageJson from "../package.json"; // Import version from package.json
 import { Sidebar } from "@/components/sidebar";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -17,6 +18,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  console.log(`Terradorian Web App Version: ${packageJson.version}`);
+
   return (
     <html lang="en">
       <body className={inter.className}>
