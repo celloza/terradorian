@@ -7,6 +7,7 @@ param identityClientId string
 param storageAccountName string
 param cosmosEndpoint string
 param funcSubnetId string
+param webSubnetId string
 param appInsightsConnectionString string
 
 var functionAppName = 'func-terradorian-${environment}'
@@ -27,6 +28,22 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
     siteConfig: {
       linuxFxVersion: 'PYTHON|3.12'
       alwaysOn: true
+      ipSecurityRestrictions: [
+        {
+          ipAddress: '188.74.119.19/32'
+          action: 'Allow'
+          tag: 'Default'
+          priority: 100
+          name: 'Allow User IP'
+        }
+        {
+          vnetSubnetResourceId: webSubnetId
+          action: 'Allow'
+          tag: 'Default'
+          priority: 200
+          name: 'Allow Web App Subnet'
+        }
+      ]
       appSettings: [
         {
           name: 'AzureWebJobsStorage__accountName'
