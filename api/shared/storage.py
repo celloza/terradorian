@@ -6,10 +6,30 @@ from azure.storage.blob import BlobServiceClient
 # Or use a specific 'BlobStorageConnection' env var if preferred.
 # For local Azurite, "UseDevelopmentStorage=true" is the standard value.
 
+from azure.identity import DefaultAzureCredential
+
 def get_blob_service_client():
-    connection_string = os.environ.get("BlobStorageConnection", "UseDevelopmentStorage=true")
-    # Azurite might be older than the SDK, so pin the API version to a stable release
-    return BlobServiceClient.from_connection_string(connection_string, api_version="2025-01-05")
+    connection_string = os.environ.get("BlobStorageConnection")
+    
+    if connection_string:
+         return BlobServiceClient.from_connection_string(connection_string)
+         
+    # Fallback/Primary for Azure: Use Managed Identity
+    # We need the storage account URL.
+    # In Bicep we set AzureWebJobsStorage__accountName, but we might not have it as a clear env var for general use?
+    # Actually, let's just construct it or expect an env var.
+    # Checking Bicep again... we have 'AzureWebJobsStorage__accountName' which is specific to Functions runtime.
+    # Let's add STORAGE_ACCOUNT_NAME to Bicep, effectively.
+    # OR, safely infer it from the AzureWebJobsStorage__accountName if possible, but that's risky if format changes.
+    
+    # Better: Use a dedicated env var 'STORAGE_ACCOUNT_NAME'
+    account_name = os.environ.get("STORAGE_ACCOUNT_NAME")
+    if account_name:
+        account_url = f"https://{account_name}.blob.core.windows.net"
+        return BlobServiceClient(account_url=account_url, credential=DefaultAzureCredential())
+        
+    # Last Resort (Local Dev default)
+    return BlobServiceClient.from_connection_string("UseDevelopmentStorage=true")
 
 def upload_plan_blob(plan_data: dict, project_id: str, component_id: str, environment: str, plan_id: str) -> str:
     """
