@@ -71,6 +71,10 @@ jobs:
         cp -r .next/standalone/. package/
         cp -r public/* package/public/
         cp -r .next/static/* package/.next/static/
+        
+        # Inject version file
+        echo "{\"version\": \"${{ github.ref_name }}\"}" > package/version.json
+        
         cd package
         zip -r ../../web.zip .
         
