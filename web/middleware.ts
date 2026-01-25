@@ -18,9 +18,10 @@ export async function middleware(req: NextRequest) {
         /\.(svg|png|jpg|jpeg|gif|webp)$/i.test(pathname)
     const isLogin = pathname === '/login'
     const isPublicApi = pathname === '/api/settings/auth'
+    const isHealth = pathname === '/health'
 
     // Allow public assets and auth API
-    if (isApiAuth || isPublicStatic) {
+    if (isApiAuth || isPublicStatic || isHealth) {
         return NextResponse.next()
     }
 
