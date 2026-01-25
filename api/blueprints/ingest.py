@@ -37,7 +37,7 @@ def ingest_plan(req: func.HttpRequest) -> func.HttpResponse:
     
     return func.HttpResponse("Endpoint under refactor", status_code=501)
 
-@bp.route(route="manual_ingest", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+@bp.route(route="manual_ingest", auth_level=func.AuthLevel.FUNCTION, methods=["POST"])
 def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Processing manual_ingest request.')
 
