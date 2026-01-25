@@ -16,17 +16,17 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
   kind: 'app,linux'
   properties: {
     serverFarmId: serverFarmId
-    reserved: true // Required for Linux
     siteConfig: {
       linuxFxVersion: 'NODE|20-lts' // Next.js requires Node
-      appCommandLine: 'node server.js' // Next.js standalone output uses server.js
-      alwaysOn: false // B1 sku supports AlwaysOn? B1 yes. But keep cost low?
+      // appCommandLine: 'node server.js' // Let default handle it or configure later
+      alwaysOn: true
       appSettings: [
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
           value: 'https://github.com/celloza/terradorian/releases/latest/download/web.zip'
         }
         {
+          name: 'API_URL'
           value: apiUrl
         }
         {

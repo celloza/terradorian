@@ -7,7 +7,7 @@ param principalId string
 
 var accountName = 'cosmos-terradorian-${environment}'
 var databaseName = 'TerradorianDB'
-var databaseName = 'TerradorianDB'
+
 var containerPlans = 'plans'
 var containerProjects = 'projects'
 var containerComponents = 'components'
