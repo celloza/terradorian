@@ -47,6 +47,11 @@ resource vnet 'Microsoft.Network/virtualNetworks@2022-07-01' = {
               }
             }
           ]
+          serviceEndpoints: [
+            {
+              service: 'Microsoft.Web'
+            }
+          ]
         }
       }
     ]
