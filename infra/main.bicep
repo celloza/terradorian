@@ -5,8 +5,6 @@ param tags object = {
   managedBy: 'bicep'
 }
 
-var functionAppName = 'func-terradorian-${environment}'
-
 // 1. Networking
 module networking 'modules/networking.bicep' = {
   name: 'networking'
@@ -88,6 +86,9 @@ resource serverFarm 'Microsoft.Web/serverfarms@2022-03-01' = {
   }
 }
 
+// Generate a consistent internal secret based on RG ID (Unique per deployment)
+var internalSecret = uniqueString(resourceGroup().id, environment, 'internal-secret')
+
 // 7. Function App (API)
 module function 'modules/function.bicep' = {
   name: 'function'
@@ -103,6 +104,7 @@ module function 'modules/function.bicep' = {
     funcSubnetId: networking.outputs.funcSubnetId
     webSubnetId: networking.outputs.webSubnetId
     appInsightsConnectionString: appinsights.outputs.connectionString
+    internalSecret: internalSecret
   }
 }
 
@@ -115,7 +117,7 @@ module webapp 'modules/webapp.bicep' = {
     tags: tags
     serverFarmId: serverFarm.id
     webSubnetId: networking.outputs.webSubnetId
-    apiKey: function.outputs.functionKey
+    internalSecret: internalSecret
     apiUrl: 'https://${function.outputs.functionAppDefaultHostName}/api'
     appInsightsConnectionString: appinsights.outputs.connectionString
   }

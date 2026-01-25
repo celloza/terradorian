@@ -9,6 +9,8 @@ param cosmosEndpoint string
 param funcSubnetId string
 param webSubnetId string
 param appInsightsConnectionString string
+@secure()
+param internalSecret string
 
 var functionAppName = 'func-terradorian-${environment}'
 
@@ -68,6 +70,10 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         {
           name: 'CosmosDbConnectionSetting__accountEndpoint'
           value: cosmosEndpoint
+        }
+        {
+          name: 'INTERNAL_SECRET'
+          value: internalSecret
         }
         {
           name: 'AZURE_CLIENT_ID'
