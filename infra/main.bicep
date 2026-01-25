@@ -112,6 +112,7 @@ module webapp 'modules/webapp.bicep' = {
     tags: tags
     serverFarmId: serverFarm.id
     apiUrl: 'https://${function.outputs.functionAppDefaultHostName}/api'
+    appInsightsConnectionString: appinsights.outputs.connectionString
   }
 }
 
