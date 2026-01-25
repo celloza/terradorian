@@ -7,7 +7,10 @@ param principalId string
 
 var accountName = 'cosmos-terradorian-${environment}'
 var databaseName = 'TerradorianDB'
-var containerName = 'plans'
+var databaseName = 'TerradorianDB'
+var containerPlans = 'plans'
+var containerProjects = 'projects'
+var containerComponents = 'components'
 var peName = 'pe-cosmos-${environment}'
 
 resource account 'Microsoft.DocumentDB/databaseAccounts@2022-08-15' = {
@@ -48,10 +51,42 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2022-08-15
 
 resource container 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2022-08-15' = {
   parent: database
-  name: containerName
+  name: containerPlans
   properties: {
     resource: {
-      id: containerName
+      id: containerPlans
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+      }
+    }
+  }
+}
+
+resource projectsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2022-08-15' = {
+  parent: database
+  name: containerProjects
+  properties: {
+    resource: {
+      id: containerProjects
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+      }
+    }
+  }
+}
+
+resource componentsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2022-08-15' = {
+  parent: database
+  name: containerComponents
+  properties: {
+    resource: {
+      id: containerComponents
       partitionKey: {
         paths: [
           '/id'
