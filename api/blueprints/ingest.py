@@ -37,9 +37,37 @@ def ingest_plan(req: func.HttpRequest) -> func.HttpResponse:
     
     return func.HttpResponse("Endpoint under refactor", status_code=501)
 
-@bp.route(route="manual_ingest", auth_level=func.AuthLevel.FUNCTION, methods=["POST"])
+@bp.route(route="manual_ingest", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
 def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Processing manual_ingest request.')
+
+    # --- Authentication Logic ---
+    from shared.auth import verify_pat
+    import os
+
+    is_authorized = False
+    project_doc = None
+
+    # 1. Check Internal Secret (from Web App)
+    internal_secret = os.environ.get('INTERNAL_SECRET')
+    auth_header_secret = req.headers.get('x-internal-secret')
+    
+    if internal_secret and auth_header_secret == internal_secret:
+        is_authorized = True
+        logging.info("Authenticated via Internal Secret")
+    
+    # 2. Check PAT (from DevOps/External)
+    if not is_authorized:
+        auth_header = req.headers.get('Authorization')
+        if auth_header and auth_header.startswith("Bearer "):
+            token_str = auth_header.split(" ")[1]
+            project_doc = verify_pat(token_str)
+            if project_doc:
+                is_authorized = True
+                logging.info(f"Authenticated via PAT for Project {project_doc['id']}")
+
+    if not is_authorized:
+        return func.HttpResponse("Unauthorized: Invalid PAT or Secret", status_code=401)
 
     try:
         req_body = req.get_json()
@@ -125,6 +153,15 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         doc_dict['component_id'] = component_doc['id']
         doc_dict['project_name'] = project_doc['name']
         doc_dict['component_name'] = component_doc['name']
+        
+        # --- PAT Ownership Check ---
+        # If authenticated via PAT (project_doc matches), ensure component belongs to that project
+        if project_doc and 'id' in project_doc:
+             # Just strict equality since project_doc comes from PAT verification
+             if component_doc['project_id'] != project_doc['id']:
+                 logging.warning(f"Security Alert: PAT for Project {project_doc['id']} tried to upload to Component {component_doc['id']} (Project {component_doc['project_id']})")
+                 return func.HttpResponse("Forbidden: PAT does not match Component's Project", status_code=403)
+                 
     except Exception as e:
         logging.error(f"Project metadata failed: {e}")
         return func.HttpResponse("Failed to resolve project metadata", status_code=500)
