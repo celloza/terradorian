@@ -22,6 +22,7 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
       linuxFxVersion: 'NODE|20-lts' // Next.js requires Node
       appCommandLine: 'node server.js' // Next.js standalone output uses server.js
       alwaysOn: true
+      vnetRouteAllEnabled: true
       ipSecurityRestrictions: [
         {
           ipAddress: '188.74.119.19/32'
