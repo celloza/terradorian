@@ -1,4 +1,5 @@
 "use client"
+import { toast } from "sonner"
 
 import { useState } from "react"
 import useSWR from "swr"
@@ -31,7 +32,7 @@ export default function ProjectsPage() {
             setNewProjectDesc("")
             mutate()
         } catch (e) {
-            alert("Failed to create project")
+            toast.error("Failed to create project")
         }
     }
 

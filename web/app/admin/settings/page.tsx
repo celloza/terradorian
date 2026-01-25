@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Save } from "lucide-react"
+import { toast } from "sonner"
 
 // Actually, looking at package.json (not visible) or other files... 
 // I'll stick to simple state message for now to be safe, or just keeping the existing message approach but styled better.
@@ -22,7 +23,6 @@ export default function SettingsPage() {
     const { register, handleSubmit, setValue } = useForm<AuthSettings>()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
-    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
     useEffect(() => {
         // Load current settings
@@ -47,7 +47,6 @@ export default function SettingsPage() {
 
     const onSubmit = async (data: AuthSettings) => {
         setSaving(true)
-        setMessage(null)
 
         try {
             const res = await fetch('/api/settings/auth', {
@@ -57,12 +56,18 @@ export default function SettingsPage() {
             })
 
             if (res.ok) {
-                setMessage({ type: 'success', text: "Settings saved successfully. Changes will take effect on next login." })
+                toast.success("Settings saved successfully", {
+                    description: "Changes will take effect on next login."
+                })
             } else {
-                setMessage({ type: 'error', text: "Failed to save settings. Please try again." })
+                toast.error("Failed to save settings", {
+                    description: "Please check your inputs and try again."
+                })
             }
         } catch (e) {
-            setMessage({ type: 'error', text: "An error occurred while saving." })
+            toast.error("An error occurred", {
+                description: "Could not connect to the server."
+            })
         }
 
         setSaving(false)
@@ -133,14 +138,7 @@ export default function SettingsPage() {
                                 </Button>
                             </div>
 
-                            {message && (
-                                <div className={`w-full p-3 rounded-md text-sm ${message.type === 'success'
-                                    ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                                    : 'bg-red-500/10 text-red-600 dark:text-red-400'
-                                    }`}>
-                                    {message.text}
-                                </div>
-                            )}
+                            {/* Toaster handles feedback now */}
                         </CardFooter>
                     </form>
                 </Card>
