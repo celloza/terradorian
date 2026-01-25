@@ -62,7 +62,17 @@ module keyvault 'modules/keyvault.bicep' = {
   }
 }
 
-// 6. App Service Plan (Shared)
+// 6. Application Insights
+module appinsights 'modules/appinsights.bicep' = {
+  name: 'appinsights'
+  params: {
+    location: location
+    environment: environment
+    tags: tags
+  }
+}
+
+// 7. App Service Plan (Shared)
 resource serverFarm 'Microsoft.Web/serverfarms@2022-03-01' = {
   name: 'asp-terradorian-${environment}'
   location: location
@@ -89,6 +99,7 @@ module function 'modules/function.bicep' = {
     storageAccountName: storage.outputs.storageAccountName
     cosmosEndpoint: cosmos.outputs.accountEndpoint
     funcSubnetId: networking.outputs.funcSubnetId
+    appInsightsConnectionString: appinsights.outputs.connectionString
   }
 }
 

@@ -74,8 +74,10 @@ export function TopNavBar({ children }: TopNavBarProps) {
                         <DropdownMenuItem>
                             <User className="mr-2 h-4 w-4" /> Profile
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                            <Settings className="mr-2 h-4 w-4" /> Settings
+                        <DropdownMenuItem asChild>
+                            <Link href="/admin/settings" className="cursor-pointer">
+                                <Settings className="mr-2 h-4 w-4" /> Settings
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-red-600 cursor-pointer" onClick={handleLogout}>
