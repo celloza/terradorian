@@ -6,11 +6,21 @@ export async function middleware(req: NextRequest) {
     // 1. Auth Check using JWT Token
     // We use getToken because the 'auth' wrapper from v5 beta was causing runtime type errors with async config.
     // Explicitly check for the legacy cookie name we forced in auth.ts
-    const token = await getToken({
-        req,
-        secret: process.env.AUTH_SECRET,
-        cookieName: 'next-auth.session-token'
-    })
+    // Debug: Log environment status
+    if (!process.env.AUTH_SECRET) console.error("MIDDLEWARE ERROR: AUTH_SECRET is missing!");
+    if (!process.env.NEXTAUTH_SECRET) console.error("MIDDLEWARE WARNING: NEXTAUTH_SECRET is missing!");
+
+    let token = null;
+    try {
+        token = await getToken({
+            req,
+            secret: process.env.AUTH_SECRET, // Fallback to NEXTAUTH_SECRET happens internally usually?
+            cookieName: 'next-auth.session-token'
+        })
+    } catch (e) {
+        console.error("MIDDLEWARE: getToken failed:", e);
+        // Treat as not logged in, don't crash the app
+    }
 
     const isLoggedIn = !!token
 
