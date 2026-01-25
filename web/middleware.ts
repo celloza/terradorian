@@ -28,7 +28,8 @@ export async function middleware(req: NextRequest) {
     // Login Page Redirection
     if (isLogin) {
         if (isLoggedIn) {
-            return NextResponse.redirect(new URL('/', req.url))
+            const baseUrl = process.env.NEXTAUTH_URL || req.url
+            return NextResponse.redirect(new URL('/', baseUrl))
         }
         // Allow access to login page
         return NextResponse.next()
@@ -36,8 +37,15 @@ export async function middleware(req: NextRequest) {
 
     // Protected Routes (Everything else)
     if (!isLoggedIn && !isPublicApi) {
-        const loginUrl = new URL('/login', req.url)
-        loginUrl.searchParams.set('callbackUrl', req.url)
+        // Fix: Use NEXTAUTH_URL if available to prevent leaking internal container hostname
+        // NEXTAUTH_URL should be "https://web-terradorian-dev.azurewebsites.net"
+        const baseUrl = process.env.NEXTAUTH_URL || req.url
+        const loginUrl = new URL('/login', baseUrl)
+
+        // Ensure the callback URL is also properly rooted
+        const callbackUrl = new URL(req.nextUrl.pathname + req.nextUrl.search, baseUrl).toString()
+        loginUrl.searchParams.set('callbackUrl', callbackUrl)
+
         return NextResponse.redirect(loginUrl)
     }
 

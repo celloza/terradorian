@@ -47,6 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (req) => {
     }
 
     return {
+        trustHost: true,
         providers,
         pages: {
             signIn: '/login',
