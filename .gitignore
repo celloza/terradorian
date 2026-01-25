@@ -225,3 +225,8 @@ manual_tests/
 
 # Local Tools
 tools/
+infra/deploy-params.json
+api_v0.0.13.zip
+api_v0.0.15.zip
+debug_kudu.py
+webapp_logs.zip
