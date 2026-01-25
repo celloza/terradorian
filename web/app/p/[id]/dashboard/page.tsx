@@ -21,8 +21,8 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
         <div className="p-6 space-y-8">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-[#14161A]">Overview <span className="text-muted-foreground font-normal text-lg ml-2">({env})</span></h1>
-                    <p className="text-muted-foreground">High-level view of your infrastructure drift.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-[#14161A]">Environment <span className="text-muted-foreground font-normal text-lg ml-2">({env})</span></h1>
+                    <p className="text-muted-foreground">Detailed drift analysis for this environment.</p>
                 </div>
                 <DashboardActionMenu onUploadComplete={() => mutate()} />
             </div>

@@ -11,6 +11,7 @@ var databaseName = 'TerradorianDB'
 var containerPlans = 'plans'
 var containerProjects = 'projects'
 var containerComponents = 'components'
+var containerSettings = 'settings'
 var peName = 'pe-cosmos-${environment}'
 
 resource account 'Microsoft.DocumentDB/databaseAccounts@2022-08-15' = {
@@ -87,6 +88,22 @@ resource componentsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases
   properties: {
     resource: {
       id: containerComponents
+      partitionKey: {
+        paths: [
+          '/id'
+        ]
+        kind: 'Hash'
+      }
+    }
+  }
+}
+
+resource settingsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2022-08-15' = {
+  parent: database
+  name: containerSettings
+  properties: {
+    resource: {
+      id: containerSettings
       partitionKey: {
         paths: [
           '/id'

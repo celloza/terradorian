@@ -28,7 +28,7 @@ export function ProjectSwitcher() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" role="combobox" className="w-[200px] justify-between text-white hover:bg-zinc-800 hover:text-white">
+                <Button variant="ghost" role="combobox" className="w-auto min-w-[200px] max-w-[400px] justify-between text-white hover:bg-zinc-800 hover:text-white">
                     {activeProject ? (
                         <span className="flex items-center gap-2 truncate">
                             <FolderKanban className="h-4 w-4" />
