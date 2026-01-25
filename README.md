@@ -19,6 +19,7 @@ Detailed documentation is available in the `docs/` directory:
 *   **[Setup Guide](docs/SETUP.md)**: Instructions for running the full stack locally (Docker, Python, Node.js).
 *   **[Architecture](docs/ARCHITECTURE.md)**: Overview of the system design, hybrid storage, and data flow.
 *   **[API Reference](docs/API.md)**: Details on the backend API endpoints.
+*   **[Azure Deployment Guide](docs/AZURE_DEPLOYMENT_GUIDE.md)**: Detailed guide on production deployment, fix for Next.js issues, and network security configuration.
 
 ## 🛠️ Quick Start (Local)
 
