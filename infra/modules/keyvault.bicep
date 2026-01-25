@@ -20,7 +20,7 @@ resource vault 'Microsoft.KeyVault/vaults@2022-07-01' = {
       name: 'standard'
     }
     enableRbacAuthorization: true
-    softDeleteRetentionInDays: 7
+
     publicNetworkAccess: 'Enabled'
   }
 }
