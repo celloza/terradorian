@@ -73,20 +73,22 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         req_body = req.get_json()
         # Manual extraction to avoid Pydantic overhead on large dicts
         component_id = req_body.get('component_id')
+        component_name = req_body.get('component_name')
         environment = req_body.get('environment')
         tf_plan = req_body.get('terraform_plan')
         
-        if not component_id or not environment or not tf_plan:
-             return func.HttpResponse("Missing required fields: component_id, environment, terraform_plan", status_code=400)
+        if not (component_id or component_name) or not environment or not tf_plan:
+             return func.HttpResponse("Missing required fields: component_id (or component_name), environment, terraform_plan", status_code=400)
              
         # Create object for compatibility with existing code
         class IngestData:
-            def __init__(self, cid, env, plan):
+            def __init__(self, cid, cname, env, plan):
                 self.component_id = cid
+                self.component_name = cname
                 self.environment = env
                 self.terraform_plan = plan
                 
-        ingest_data = IngestData(component_id, environment, tf_plan)
+        ingest_data = IngestData(component_id, component_name, environment, tf_plan)
 
     except ValueError as e:
         return func.HttpResponse(f"Invalid JSON: {e}", status_code=400)
@@ -94,9 +96,36 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
     # Fetch Component Logic
     try:
         container_comps = get_container("components")
-        component_doc = container_comps.read_item(item=ingest_data.component_id, partition_key=ingest_data.component_id)
+        
+        if ingest_data.component_id:
+             # Direct ID lookup (Efficient, PK aware)
+             component_doc = container_comps.read_item(item=ingest_data.component_id, partition_key=ingest_data.component_id)
+        elif ingest_data.component_name:
+             # Name lookup (Requires Project Context)
+             if not project_doc:
+                 return func.HttpResponse("component_name lookup requires PAT authentication (Project Context)", status_code=400)
+             
+             # Cross-partition query (Acceptable for lookup)
+             query = "SELECT * FROM c WHERE c.project_id = @pid AND c.name = @name"
+             params = [
+                 {"name": "@pid", "value": project_doc['id']},
+                 {"name": "@name", "value": ingest_data.component_name}
+             ]
+             results = list(container_comps.query_items(query=query, parameters=params, enable_cross_partition_query=True))
+             
+             if not results:
+                 return func.HttpResponse(f"Component '{ingest_data.component_name}' not found in Project '{project_doc['name']}'", status_code=404)
+             if len(results) > 1:
+                  return func.HttpResponse(f"Ambiguous component name '{ingest_data.component_name}'", status_code=409)
+                  
+             component_doc = results[0]
+             # Backfill ID for downstream logic
+             ingest_data.component_id = component_doc['id']
+        else:
+             return func.HttpResponse("Either component_id or component_name is required", status_code=400)
+
     except exceptions.CosmosResourceNotFoundError:
-         return func.HttpResponse("Component not found", status_code=404)
+        return func.HttpResponse("Component not found", status_code=404)
     except Exception as e:
          return func.HttpResponse(f"Error fetching component: {e}", status_code=500)
 
