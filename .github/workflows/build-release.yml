@@ -22,7 +22,7 @@ jobs:
         cd api
         # Install dependencies to .python_packages (Standard Azure Functions structure)
         mkdir -p .python_packages/lib/site-packages
-        pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+        pip install -r requirements.txt --target=".python_packages/lib/site-packages" --platform manylinux2014_x86_64 --only-binary=:all: --implementation cp --python-version 3.12
         # Remove azure-functions to avoid conflict with worker runtime
         rm -rf .python_packages/lib/site-packages/azure/functions
         rm -rf .python_packages/lib/site-packages/azure_functions-*.dist-info
