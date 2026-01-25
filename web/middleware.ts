@@ -3,9 +3,15 @@ import type { NextRequest } from 'next/server'
 import { getToken } from "next-auth/jwt"
 
 export async function middleware(req: NextRequest) {
+    // DEBUG LOGGING
+    console.log(`[Middleware] ${req.method} ${req.nextUrl.pathname}`)
+    console.log(`[Middleware] Cookies: ${req.cookies.getAll().map(c => c.name).join(', ')}`)
+
     // 1. Auth Check using JWT Token
     // We use getToken because the 'auth' wrapper from v5 beta was causing runtime type errors with async config.
     const token = await getToken({ req, secret: process.env.AUTH_SECRET })
+    console.log(`[Middleware] Token found: ${!!token}`)
+
     const isLoggedIn = !!token
 
     const { pathname } = req.nextUrl
