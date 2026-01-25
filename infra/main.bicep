@@ -78,7 +78,7 @@ resource serverFarm 'Microsoft.Web/serverfarms@2022-03-01' = {
   location: location
   tags: tags
   sku: {
-    name: 'B1'
+    name: 'B2'
   }
   kind: 'linux'
   properties: {

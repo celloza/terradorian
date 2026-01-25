@@ -26,6 +26,7 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
     serverFarmId: serverFarmId
     siteConfig: {
       linuxFxVersion: 'PYTHON|3.12'
+      alwaysOn: true
       appSettings: [
         {
           name: 'AzureWebJobsStorage__accountName'
@@ -37,8 +38,8 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
           value: 'managedidentity'
         }
         {
-           name: 'AzureWebJobsStorage__clientId'
-           value: identityClientId
+          name: 'AzureWebJobsStorage__clientId'
+          value: identityClientId
         }
         {
           name: 'CosmosDbConnectionSetting__accountEndpoint'
