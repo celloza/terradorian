@@ -37,6 +37,22 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
           name: 'ApplicationInsightsAgent_EXTENSION_VERSION'
           value: '~3'
         }
+        {
+          name: 'AUTH_SECRET'
+          value: 'terradorian-dev-secret-key-123' // Change this in production
+        }
+        {
+          name: 'NEXTAUTH_SECRET'
+          value: 'terradorian-dev-secret-key-123'
+        }
+        {
+          name: 'AUTH_TRUST_HOST'
+          value: 'true'
+        }
+        {
+          name: 'NEXTAUTH_URL'
+          value: 'https://${webAppName}.azurewebsites.net'
+        }
       ]
       healthCheckPath: '/health'
     }
