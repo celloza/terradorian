@@ -5,6 +5,8 @@ param tags object = {
   managedBy: 'bicep'
 }
 
+var functionAppName = 'func-terradorian-${environment}'
+
 // 1. Networking
 module networking 'modules/networking.bicep' = {
   name: 'networking'
@@ -113,6 +115,7 @@ module webapp 'modules/webapp.bicep' = {
     tags: tags
     serverFarmId: serverFarm.id
     webSubnetId: networking.outputs.webSubnetId
+    apiKey: listKeys(resourceId('Microsoft.Web/sites/host/default', functionAppName, 'default'), '2022-03-01').functionKeys.default
     apiUrl: 'https://${function.outputs.functionAppDefaultHostName}/api'
     appInsightsConnectionString: appinsights.outputs.connectionString
   }
