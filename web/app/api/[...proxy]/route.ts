@@ -11,17 +11,17 @@ async function proxy(req: NextRequest, props: { params: Promise<{ proxy: string[
     const pathStr = params.proxy.join("/");
     const targetUrl = `${apiUrl}/${pathStr}${req.nextUrl.search}`;
 
-    console.log(`[Proxy] Forwarding ${req.nextUrl.pathname} to ${targetUrl}`);
-
     try {
         const headers = new Headers(req.headers);
+
         // Inject Internal Secret for Web App -> Function secure communication
         if (process.env.INTERNAL_SECRET) {
-            console.log("PROXY: Injecting x-internal-secret");
             headers.set("x-internal-secret", process.env.INTERNAL_SECRET);
         } else {
             console.error("PROXY ERROR: INTERNAL_SECRET is missing in environment!");
         }
+
+        // Legacy/Fallback for local dev or mixed modes
         if (process.env.API_KEY) {
             headers.set("x-functions-key", process.env.API_KEY);
         }
