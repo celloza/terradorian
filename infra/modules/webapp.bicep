@@ -38,6 +38,7 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
           value: '~3'
         }
       ]
+      healthCheckPath: '/health'
     }
     httpsOnly: true
   }
