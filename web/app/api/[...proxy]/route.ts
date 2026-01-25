@@ -15,6 +15,13 @@ async function proxy(req: NextRequest, props: { params: Promise<{ proxy: string[
 
     try {
         const headers = new Headers(req.headers);
+        // Inject Internal Secret for Web App -> Function secure communication
+        if (process.env.INTERNAL_SECRET) {
+            console.log("PROXY: Injecting x-internal-secret");
+            headers.set("x-internal-secret", process.env.INTERNAL_SECRET);
+        } else {
+            console.error("PROXY ERROR: INTERNAL_SECRET is missing in environment!");
+        }
         if (process.env.API_KEY) {
             headers.set("x-functions-key", process.env.API_KEY);
         }
