@@ -63,7 +63,7 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
-          value: 'https://github.com/celloza/terradorian/releases/download/v0.0.18/api.zip'
+          value: 'https://github.com/celloza/terradorian/releases/download/v0.0.19/api.zip'
         }
         {
           name: 'XDG_CACHE_HOME'
