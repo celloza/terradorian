@@ -48,6 +48,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (req) => {
 
     return {
         trustHost: true,
+        // Fix: Explicitly use legacy cookie names to ensure getToken in middleware finds them
+        cookies: {
+            sessionToken: {
+                name: `next-auth.session-token`,
+                options: {
+                    httpOnly: true,
+                    sameSite: 'lax',
+                    path: '/',
+                    secure: process.env.NODE_ENV === 'production',
+                },
+            },
+        },
         providers,
         pages: {
             signIn: '/login',
