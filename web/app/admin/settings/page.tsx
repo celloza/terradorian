@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Save } from "lucide-react"
-import { toast } from "sonner" // Assuming sonner is used, or I'll just use basic alert/text for now as I didn't verify toast lib.
+
 // Actually, looking at package.json (not visible) or other files... 
 // I'll stick to simple state message for now to be safe, or just keeping the existing message approach but styled better.
 
@@ -135,8 +135,8 @@ export default function SettingsPage() {
 
                             {message && (
                                 <div className={`w-full p-3 rounded-md text-sm ${message.type === 'success'
-                                        ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                                        : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                                    ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                                    : 'bg-red-500/10 text-red-600 dark:text-red-400'
                                     }`}>
                                     {message.text}
                                 </div>
