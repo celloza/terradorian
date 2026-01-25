@@ -195,7 +195,9 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         logging.error(f"Project metadata failed: {e}")
         return func.HttpResponse("Failed to resolve project metadata", status_code=500)
 
-    doc_dict['id'] = str(uuid.uuid4())
+    # Create Document ID early
+    plan_id = str(uuid.uuid4())
+    doc_dict['id'] = plan_id
     
     # 2. Use Plan Timestamp
     plan_timestamp = tf_plan.get('timestamp')
@@ -203,6 +205,29 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         doc_dict['timestamp'] = plan_timestamp
     else:
         doc_dict['timestamp'] = datetime.utcnow().isoformat()
+
+    # 3. Upload Full Plan to Blob Storage
+    # Import inside function to avoid circular deps if any (though best at top)
+    from shared.storage import upload_plan_blob
+    
+    try:
+        blob_url = upload_plan_blob(
+            plan_data=tf_plan,
+            project_id=doc_dict['project_id'],
+            component_id=doc_dict['component_id'],
+            environment=doc_dict['environment'],
+            plan_id=doc_dict['id']
+        )
+        doc_dict['blob_url'] = blob_url
+    except Exception as e:
+        status_code = 500
+        error_msg = f"Blob Storage Upload Failed: {str(e)}"
+        if "AuthorizationPermissionMismatch" in str(e) or "403" in str(e):
+             status_code = 500
+             error_msg = "Blob Storage Access Denied (403). Check Managed Identity RBAC assignments."
+        
+        logging.error(f"Blob upload failed: {e}")
+        return func.HttpResponse(error_msg, status_code=status_code)
 
     try:
         container = get_container("plans", "/id")
@@ -228,28 +253,12 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         if existing_plans:
             latest_ts = existing_plans[0]['timestamp']
             if doc_dict['timestamp'] <= latest_ts:
+                # Warning only? Or block? Stale plans might technically be valid if re-running old verification?
+                # For now keeping it as 400 as per previous logic, but improved message.
                 return func.HttpResponse(
-                    f"Stale Plan: Uploaded plan timestamp ({doc_dict['timestamp']}) is older than or equal to the latest existing plan ({latest_ts}).",
+                    f"Stale Plan: Uploaded plan timestamp ({doc_dict['timestamp']}) is not newer than latest plan ({latest_ts}).",
                     status_code=400
                 )
-
-        # 3. Upload Full Plan to Blob Storage
-        # Import inside function to avoid circular deps if any (though best at top)
-        # Assuming verify imports later.
-        from shared.storage import upload_plan_blob
-        
-        try:
-            blob_url = upload_plan_blob(
-                plan_data=tf_plan,
-                project_id=doc_dict['project_id'],
-                component_id=doc_dict['component_id'],
-                environment=doc_dict['environment'],
-                plan_id=doc_dict['id']
-            )
-            doc_dict['blob_url'] = blob_url
-        except Exception as e:
-            logging.error(f"Blob upload failed: {e}")
-            return func.HttpResponse(f"Error uploading to Blob Storage: {e}", status_code=500)
 
         # 4. Prune Cosmos Document (Hybrid Approach)
         pruned_plan = {}
@@ -258,22 +267,25 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
             if key in tf_plan:
                 pruned_plan[key] = tf_plan[key]
                 
-        # Keep Resource Changes (Critical for Dashboard, but stripped)
+        # Keep Resource Changes
         if 'resource_changes' in tf_plan:
             refined_changes = []
             for rc in tf_plan['resource_changes']:
                 change_data = rc.get('change') or {}
                 
                 # Extract Resource Group Name
-                rg_name = change_data.get('after', {}).get('resource_group_name')
+                after_data = change_data.get('after') or {}
+                rg_name = after_data.get('resource_group_name')
+                
                 if not rg_name:
-                    rg_name = change_data.get('before', {}).get('resource_group_name')
+                    before_data = change_data.get('before') or {}
+                    rg_name = before_data.get('resource_group_name')
                 
                 refined_rc = {
                     'address': rc.get('address'),
                     'type': rc.get('type'),
                     'name': rc.get('name'), 
-                    'resource_group': rg_name, # Stored for UI
+                    'resource_group': rg_name,
                     'change': {
                         'actions': change_data.get('actions', [])
                     }
@@ -284,9 +296,15 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         doc_dict['terraform_plan'] = pruned_plan
 
         container.upsert_item(doc_dict)
+        
+    except exceptions.CosmosHttpResponseError as e:
+        logging.error(f"Cosmos DB Error: {e.status_code} - {e.message}")
+        if e.status_code == 413:
+            return func.HttpResponse("Plan too large for Database. Please reduce plan size or contact support.", status_code=413)
+        return func.HttpResponse(f"Database Error ({e.status_code}): {e.message}", status_code=500)
     except Exception as e:
         logging.error(f"Upsert failed: {e}")
-        return func.HttpResponse(f"Error saving to Cosmos DB: {e}", status_code=500)
+        return func.HttpResponse(f"Internal Error saving to DB: {e}", status_code=500)
 
     return func.HttpResponse(
         body=json.dumps({"id": doc_dict['id'], "message": "Plan uploaded successfully"}),
