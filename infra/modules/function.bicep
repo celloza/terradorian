@@ -43,6 +43,13 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
           priority: 200
           name: 'Allow Web App Subnet'
         }
+        {
+          ipAddress: 'AzureCloud'
+          action: 'Allow'
+          tag: 'ServiceTag'
+          priority: 300
+          name: 'Allow Azure Cloud (DevOps)'
+        }
       ]
       appSettings: [
         {
