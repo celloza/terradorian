@@ -65,24 +65,10 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(loginUrl)
     }
 
-    // 2. API Rewrite Logic (Authenticated Users Only for /api/* except auth)
-    // (Or public API? Assuming API needs auth too, which is enforced above)
-    if (pathname.startsWith('/api')) {
-        // Skip auth/nextauth routes from rewriting to backend (handled above/redundant check safe)
-        if (pathname.startsWith('/api/auth')) {
-            return NextResponse.next()
-        }
-
-        const apiUrl = process.env.API_URL || "http://localhost:7071/api";
-        const path = pathname.replace(/^\/api/, '');
-        const baseUrl = apiUrl.endsWith('/') ? apiUrl : `${apiUrl}/`;
-        const cleanPath = path.startsWith('/') ? path.slice(1) : path;
-
-        const targetUrl = new URL(cleanPath, baseUrl);
-        targetUrl.search = req.nextUrl.search;
-
-        return NextResponse.rewrite(targetUrl);
-    }
+    // 2. API Protection
+    // Note: We DO NOT rewrite here. We let the request fall through to 
+    // app/api/[...proxy]/route.ts which handles the proxying and Secret Injection.
+    // The middleware only ensures the user is authenticated.
 
     return NextResponse.next()
 }
