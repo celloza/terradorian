@@ -2,6 +2,7 @@ param location string
 param environment string
 param tags object
 param serverFarmId string
+param webSubnetId string
 // param webSubnetId string // Optional if we want VNet integration later
 
 param apiUrl string
@@ -16,10 +17,20 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
   kind: 'app,linux'
   properties: {
     serverFarmId: serverFarmId
+    virtualNetworkSubnetId: webSubnetId
     siteConfig: {
       linuxFxVersion: 'NODE|20-lts' // Next.js requires Node
       appCommandLine: 'node server.js' // Next.js standalone output uses server.js
       alwaysOn: true
+      ipSecurityRestrictions: [
+        {
+          ipAddress: '188.74.119.19/32'
+          action: 'Allow'
+          tag: 'Default'
+          priority: 100
+          name: 'Allow User IP'
+        }
+      ]
       appSettings: [
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'

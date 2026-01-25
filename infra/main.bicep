@@ -99,6 +99,7 @@ module function 'modules/function.bicep' = {
     storageAccountName: storage.outputs.storageAccountName
     cosmosEndpoint: cosmos.outputs.accountEndpoint
     funcSubnetId: networking.outputs.funcSubnetId
+    webSubnetId: networking.outputs.webSubnetId
     appInsightsConnectionString: appinsights.outputs.connectionString
   }
 }
@@ -111,6 +112,7 @@ module webapp 'modules/webapp.bicep' = {
     environment: environment
     tags: tags
     serverFarmId: serverFarm.id
+    webSubnetId: networking.outputs.webSubnetId
     apiUrl: 'https://${function.outputs.functionAppDefaultHostName}/api'
     appInsightsConnectionString: appinsights.outputs.connectionString
   }
