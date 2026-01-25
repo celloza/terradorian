@@ -7,6 +7,7 @@ param identityClientId string
 param storageAccountName string
 param cosmosEndpoint string
 param funcSubnetId string
+param appInsightsConnectionString string
 
 var functionAppName = 'func-terradorian-${environment}'
 
@@ -57,14 +58,19 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
           value: 'false' // Disable build during deployment as we are using a pre-built zip
         }
         {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsightsConnectionString
+        }
+        {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
-          value: 'https://github.com/celloza/terradorian/releases/latest/download/api.zip'
+          value: 'https://github.com/celloza/terradorian/releases/download/v0.0.15/api.zip'
         }
         {
           name: 'XDG_CACHE_HOME'
           value: '/tmp/.cache'
         }
       ]
+      healthCheckPath: '/api/health'
       vnetRouteAllEnabled: true
     }
     virtualNetworkSubnetId: funcSubnetId

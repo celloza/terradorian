@@ -8,3 +8,5 @@ app.register_functions(ingest_bp)
 app.register_functions(web_api_bp)
 from blueprints.settings_api import bp as settings_bp
 app.register_functions(settings_bp)
+from blueprints.health import bp as health_bp
+app.register_functions(health_bp)
