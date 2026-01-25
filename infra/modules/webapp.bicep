@@ -5,6 +5,7 @@ param serverFarmId string
 // param webSubnetId string // Optional if we want VNet integration later
 
 param apiUrl string
+param appInsightsConnectionString string
 
 var webAppName = 'web-terradorian-${environment}'
 
@@ -26,8 +27,15 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
           value: 'https://github.com/celloza/terradorian/releases/latest/download/web.zip'
         }
         {
-          name: 'API_URL'
           value: apiUrl
+        }
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsightsConnectionString
+        }
+        {
+          name: 'ApplicationInsightsAgent_EXTENSION_VERSION'
+          value: '~3'
         }
       ]
     }
