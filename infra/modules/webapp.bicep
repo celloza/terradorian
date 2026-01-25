@@ -3,6 +3,7 @@ param environment string
 param tags object
 param serverFarmId string
 param webSubnetId string
+param apiKey string
 // param webSubnetId string // Optional if we want VNet integration later
 
 param apiUrl string
@@ -40,6 +41,10 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
         {
           name: 'API_URL'
           value: apiUrl
+        }
+        {
+          name: 'API_KEY'
+          value: apiKey
         }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
