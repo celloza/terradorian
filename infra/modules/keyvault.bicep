@@ -6,7 +6,7 @@ param privateDnsZoneId string
 param principalId string
 param tenantId string
 
-var vaultName = 'kv-td-${environment}'
+var vaultName = 'kv-td-${environment}-${substring(uniqueString(resourceGroup().id), 0, 6)}'
 var peName = 'pe-vault-${environment}'
 
 resource vault 'Microsoft.KeyVault/vaults@2022-07-01' = {
