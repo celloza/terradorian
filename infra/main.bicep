@@ -115,7 +115,7 @@ module webapp 'modules/webapp.bicep' = {
     tags: tags
     serverFarmId: serverFarm.id
     webSubnetId: networking.outputs.webSubnetId
-    apiKey: listKeys(resourceId('Microsoft.Web/sites/host/default', functionAppName, 'default'), '2022-03-01').functionKeys.default
+    apiKey: function.outputs.functionKey
     apiUrl: 'https://${function.outputs.functionAppDefaultHostName}/api'
     appInsightsConnectionString: appinsights.outputs.connectionString
   }
