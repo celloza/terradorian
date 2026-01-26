@@ -7,6 +7,7 @@ from datetime import datetime
 from azure.cosmos import exceptions
 from models import ManualIngestSchema
 from shared.db import get_container
+from shared.notifications import send_slack_alert
 
 bp = func.Blueprint()
 
@@ -234,7 +235,7 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         
         # Validation: Check for Stale Plan
         query = """
-            SELECT TOP 1 c.timestamp 
+            SELECT TOP 1 c.timestamp, c.id, c.terraform_plan
             FROM c 
             WHERE c.component_id = @cid AND c.environment = @env 
             ORDER BY c.timestamp DESC
@@ -297,7 +298,72 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
 
         container.upsert_item(doc_dict)
         
-    except exceptions.CosmosHttpResponseError as e:
+        # 5. Drift Notification (Slack)
+        try:
+            notifications = project_doc.get('notifications', {})
+            slack_settings = notifications.get('slack', {})
+            
+            if slack_settings.get('enabled') and slack_settings.get('webhook_url'):
+                # Calculate current changes
+                curr_changes = 0
+                if 'resource_changes' in doc_dict['terraform_plan']:
+                    for rc in doc_dict['terraform_plan']['resource_changes']:
+                         actions = rc.get('change', {}).get('actions', [])
+                         if any(a in ['create', 'update', 'delete'] for a in actions):
+                             curr_changes += 1
+                
+                # Check previous state
+                prev_changes = 0
+                was_in_sync = True # Default to True (alert on first drift?) or False?
+                # User said: "previously was in sync". If no history, maybe don't alert yet?
+                # If existing_plans is empty (fresh component), and it has drift, is that "previously in sync"? No.
+                
+                if existing_plans:
+                     # Calculate previous changes from the stored plan
+                     try:
+                         # Fetch previous plan to check if it was 0-drift
+                         prev_id = existing_plans[0]['id']
+                         input_ts = existing_plans[0]['timestamp']
+                         
+                         # We need to read the full document to access 'terraform_plan.resource_changes' 
+                         # because our query only selected limited fields.
+                         prev_plan_doc = container.read_item(item=prev_id, partition_key=prev_id)
+                         
+                         if 'terraform_plan' in prev_plan_doc and 'resource_changes' in prev_plan_doc['terraform_plan']:
+                             for rc in prev_plan_doc['terraform_plan']['resource_changes']:
+                                 actions = rc.get('change', {}).get('actions', [])
+                                 if any(a in ['create', 'update', 'delete'] for a in actions):
+                                     prev_changes += 1
+                         
+                         if prev_changes == 0:
+                             should_alert = True
+                             logging.info(f"Drift Transition: Previous plan {prev_id} had 0 changes. Current has {curr_changes}. Alerting.")
+                         else:
+                             logging.info(f"Drift Continuation: Previous plan {prev_id} had {prev_changes} changes. Current has {curr_changes}. No Alert.")
+                             
+                     except Exception as ex:
+                         logging.warning(f"Could not fetch previous plan details for drift comparison: {ex}")
+                         should_alert = False
+
+                if should_alert:
+                    logging.info(f"Drift transition detected (0 -> {curr_changes}). Sending Slack Alert.")
+                    plan_url = None
+                    
+                    try:
+                        send_slack_alert(
+                            webhook_url=slack_settings['webhook_url'],
+                            project_name=doc_dict['project_name'],
+                            component_name=doc_dict['component_name'],
+                            environment=doc_dict['environment'],
+                            drift_summary=doc_dict['terraform_plan'],
+                            plan_url=plan_url
+                        )
+                    except Exception as slack_ex:
+                         logging.error(f"Failed to send slack alert: {slack_ex}")
+        except Exception as e:
+            logging.error(f"Notification logic failed: {e}") 
+            # Don't fail the ingest
+            pass
         logging.error(f"Cosmos DB Error: {e.status_code} - {e.message}")
         if e.status_code == 413:
             return func.HttpResponse("Plan too large for Database. Please reduce plan size or contact support.", status_code=413)
