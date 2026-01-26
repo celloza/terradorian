@@ -1,14 +1,17 @@
 "use client"
 
-import { use } from "react"
+import { use, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import useSWR from "swr"
-import { fetcher, listPlans } from "@/lib/api"
+import { fetcher, listPlans, deletePlan } from "@/lib/api"
 import { ProjectDashboard } from "@/components/project-dashboard"
 import { DashboardActionMenu } from "@/components/dashboard-action-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { History, EyeOff } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { History, EyeOff, Trash2 } from "lucide-react"
 
 export default function DashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -16,6 +19,22 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const env = searchParams.get("env") || "dev"
 
     const { data: plans, mutate } = useSWR(listPlans(id, env), fetcher)
+
+    const [deleteOpen, setDeleteOpen] = useState(false)
+    const [planToDelete, setPlanToDelete] = useState<any>(null)
+
+    const handleDelete = async () => {
+        if (!planToDelete) return
+        try {
+            await deletePlan(planToDelete.id)
+            toast.success("Plan deleted")
+            mutate()
+            setDeleteOpen(false)
+            setPlanToDelete(null)
+        } catch (e) {
+            toast.error("Failed to delete plan")
+        }
+    }
 
     return (
         <div className="p-6 space-y-8">
@@ -76,7 +95,20 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Ingested</Badge>
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Ingested</Badge>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                                                    onClick={() => {
+                                                        setPlanToDelete(plan)
+                                                        setDeleteOpen(true)
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -85,6 +117,23 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                     </Table>
                 </div>
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Plan?</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this plan? <br />
+                            <span className="font-mono text-xs text-muted-foreground">{planToDelete?.id}</span>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+                        <Button variant="destructive" onClick={handleDelete}>Delete Plan</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
