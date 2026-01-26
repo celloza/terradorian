@@ -35,6 +35,23 @@ To avoid Cosmos DB document size limits (2MB) and connection issues with the emu
 *   **`plans` container**: Stores the pruned plan records.
     *   Partition Key: `/id` (currently, might be optimized to `/component_id` in future).
 
-### Drift Detection
 *   Drift is calculated by analyzing the `change.actions` in the most recent plan.
 *   "Drift Over Time" is visualized using a line chart of historical plans.
+
+## Notification System
+
+### Tactical (Real-time)
+*   **Slack**: Integrated directly into the Ingestion pipeline (`api/blueprints/ingest.py`).
+*   **Trigger**: When a component transitions from "Synced" (no-op) to "Drifted" (changes present).
+*   **Configuration**: Webhook URL stored in Project Settings.
+
+### Strategic (Reporting)
+*   **channel**: Email (SMTP).
+*   **Trigger**: Weekly schedule (Timer Trigger `api/blueprints/reporting.py`).
+*   **Content**: Summary of all components, drift status, and recent activity.
+*   **Configuration**: SMTP settings and schedule stored in Project Settings.
+
+### Data Model
+*   **`projects` container**: Extended to include `notifications` object:
+    *   `slack`: `{ enabled, webhook_url }`
+    *   `email`: `{ enabled, recipients[], smtp_config, schedule }`
