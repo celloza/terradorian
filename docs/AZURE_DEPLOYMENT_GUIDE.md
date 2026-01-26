@@ -32,6 +32,13 @@ Azure defaults can sometimes fail to start Next.js correctly. We deliberately fo
 - **Command**: `node server.js`
 - **Location**: `infra/modules/webapp.bicep` (`appCommandLine`).
 
+### Common Issues
+#### VolumeMountFailure
+If you see `VolumeMountFailure` or "Package cannot be mounted", it is often because:
+1.  The deployment package (`web.zip`) is corrupt or empty (check CI/CD artifact).
+2.  **App Service Storage is disabled**. Azure App Service on Linux sometimes requires explicit storage mounting for the `/home` directory when running from package.
+    *   **Fix**: Set `WEBSITES_ENABLE_APP_SERVICE_STORAGE=true` in App Settings.
+
 ## 2. Authentication (NextAuth.js v5)
 
 Running NextAuth.js behind Azure App Service's load balancer requires proxy configuration to prevent redirect loops and internal hostname leaks.
@@ -88,5 +95,6 @@ siteConfig: {
 
 ## 4. Version Logging
 To verify deployments, we inject the git tag at build time:
-1.  **Workflow**: Writes `{"version": "v1.0.0"}` to `version.json` in the root of the package.
-2.  **Instrumentation**: `web/instrumentation.ts` logs this on server startup.
+1.  **Workflow**: Updates `package.json` version using `npm version <tag>` *before* the build to ensure the artifact reflects the semantic release.
+2.  **Instrumentation**: `web/instrumentation.ts` logs this on server startup? Actually `app/layout.tsx` logs it to console.
+3.  **UI**: The footer or log output displays `package.json` version.
