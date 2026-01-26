@@ -116,7 +116,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 </TabsContent>
 
                 <TabsContent value="resources" className="mt-6">
-                    <ResourceList plan={latestPlan} />
+                    <ResourceList changes={latestPlan?.terraform_plan?.resource_changes || []} />
                 </TabsContent>
 
                 <TabsContent value="components" className="mt-6">
