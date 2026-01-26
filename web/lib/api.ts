@@ -117,3 +117,13 @@ export const deletePlan = async (plan_id: string) => {
     if (!res.ok) throw new Error("Failed to delete plan");
     return true;
 };
+
+export const updateProjectSettings = async (project_id: string, settings: any) => {
+    const res = await fetch(`${API_BASE}/update_project_settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id, ...settings }),
+    });
+    if (!res.ok) throw new Error("Failed to update settings");
+    return res.json();
+};

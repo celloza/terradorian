@@ -6,7 +6,7 @@ import hashlib
 from datetime import datetime
 from azure.cosmos import exceptions
 from pydantic import ValidationError
-from models import CreateProjectSchema, CreateComponentSchema
+from models import CreateProjectSchema, CreateComponentSchema, UpdateProjectSettingsSchema
 from shared.db import get_container
 
 bp = func.Blueprint()
@@ -145,7 +145,7 @@ def list_projects(req: func.HttpRequest) -> func.HttpResponse:
     try:
         container = get_container("projects", "/id")
         items = list(container.query_items(
-            query="SELECT c.id, c.name, c.description, c.created_at, c.environments FROM c",
+            query="SELECT c.id, c.name, c.description, c.created_at, c.environments, c.notifications FROM c",
             enable_cross_partition_query=True
         ))
         
@@ -362,6 +362,42 @@ def delete_environment(req: func.HttpRequest) -> func.HttpResponse:
 
         return func.HttpResponse(status_code=204)
 
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Project not found", status_code=404)
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="update_project_settings", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def update_project_settings(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        settings_data = UpdateProjectSettingsSchema(**req_body)
+    except (ValueError, ValidationError) as e:
+        return func.HttpResponse(f"Invalid Request: {e}", status_code=400)
+
+    try:
+        container = get_container("projects")
+        # Read existing project
+        project_doc = container.read_item(item=settings_data.project_id, partition_key=settings_data.project_id)
+        
+        # Update Fields
+        if settings_data.description is not None:
+             project_doc['description'] = settings_data.description
+             
+        if settings_data.notifications:
+            # We dump the notifications model to dict. 
+            # Note: This replaces the entire notifications object. Partial updates would require deeper merging logic.
+            # For settings pages, usually we save the whole state, so replacement is fine.
+            project_doc['notifications'] = settings_data.notifications.model_dump()
+
+        container.upsert_item(project_doc)
+        
+        return func.HttpResponse(
+            body=json.dumps({"message": "Settings updated", "notifications": project_doc.get('notifications')}),
+            status_code=200,
+            mimetype="application/json"
+        )
+        
     except exceptions.CosmosResourceNotFoundError:
         return func.HttpResponse("Project not found", status_code=404)
     except Exception as e:
