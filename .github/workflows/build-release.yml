@@ -55,6 +55,15 @@ jobs:
         cd web
         npm ci
         
+    - name: Set Version
+      run: |
+        cd web
+        # Strip 'v' prefix if present for npm version compliance if needed, 
+        # but npm version generally handles it or we can just set it directly.
+        # sed is safer for replacing in json without npm constraints if tag is non-standard.
+        # But npm version is cleanest.
+        npm version --no-git-tag-version ${{ github.ref_name }} || echo "Could not set npm version, continuing..."
+        
     - name: Build
       run: |
         cd web
