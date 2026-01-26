@@ -22,25 +22,97 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
     const swrKey = groupBy === "environment" ? listPlans(id) : listPlans(id, env)
     const { data: plans } = useSWR(swrKey, fetcher)
 
-    // Data Processing
-    // 1. Single View (Default)
-    const latestPlan = plans && plans.length > 0 ? plans[0] : null
+    // Data Processing: Aggregate latest plan per component
+    const aggregatedPlan = useMemo(() => {
+        if (!plans) return null
 
-    // 2. Multi-Env View
-    const envPlans = useMemo(() => {
+        // 1. Group by Environment (if applicable) or globally if env filter is set
+        // Actually, listPlans(id, env) already filters by env if env is set in URL.
+        // If groupBy === "environment", we might have multiple envs.
+
+        let targetPlans: any[] = []
+
+        if (groupBy === "environment") {
+            // If grouping by environment, we want to show each environment separately.
+            // The Aggregation happens *inside* the environment loop in the Render section.
+            return null // We handle this in the render loop logic
+        } else {
+            // For Single Env View (default or filtered)
+            // Filter plans to only those matching current env (if set via searchParams, effectively handled by API but let's be safe)
+            const currentEnvPlans = plans // .filter(p => p.environment === env) // API handles this
+
+            // 2. Group by Component ID -> Latest Plan
+            const latestByComp: Record<string, any> = {}
+            currentEnvPlans.forEach((p: any) => {
+                if (!latestByComp[p.component_id]) {
+                    latestByComp[p.component_id] = p
+                }
+            })
+
+            // 3. Merge Resource Changes
+            const mergedChanges: any[] = []
+            Object.values(latestByComp).forEach((p: any) => {
+                if (p.terraform_plan && p.terraform_plan.resource_changes) {
+                    // Add component name context to address or separate column? 
+                    // ResourceList doesn't support component column yet, but address is unique string.
+                    // We just merge.
+                    mergedChanges.push(...p.terraform_plan.resource_changes)
+                }
+            })
+
+            // 4. Construct Synthetic Plan
+            // Use timestamp from the absolute latest plan for "State from..."
+            const latestTimestamp = plans.length > 0 ? plans[0].timestamp : new Date().toISOString()
+
+            return {
+                timestamp: latestTimestamp,
+                terraform_plan: {
+                    resource_changes: mergedChanges
+                }
+            }
+        }
+    }, [plans, groupBy, env])
+
+    // 2. Multi-Env View Helper
+    const envAggregated = useMemo(() => {
         if (!plans || groupBy !== "environment") return {}
-        const latestByEnv: Record<string, any> = {}
-        // Plans are ordered by timestamp desc, so first one we see for an env is the latest
+
+        // Group by Env -> Component -> Latest Plan
+        const envs: Record<string, Record<string, any>> = {}
+
         plans.forEach((p: any) => {
-            if (!latestByEnv[p.environment]) {
-                latestByEnv[p.environment] = p
+            if (!envs[p.environment]) envs[p.environment] = {}
+            if (!envs[p.environment][p.component_id]) {
+                envs[p.environment][p.component_id] = p
             }
         })
-        return latestByEnv
+
+        // Aggregate per Env
+        const result: Record<string, any> = {}
+        Object.keys(envs).forEach(envKey => {
+            const compPlans = Object.values(envs[envKey])
+            const mergedChanges: any[] = []
+            let latestTs = ""
+
+            compPlans.forEach((p: any) => {
+                if (p.timestamp > latestTs) latestTs = p.timestamp
+                if (p.terraform_plan && p.terraform_plan.resource_changes) {
+                    mergedChanges.push(...p.terraform_plan.resource_changes)
+                }
+            })
+
+            result[envKey] = {
+                timestamp: latestTs,
+                terraform_plan: {
+                    resource_changes: mergedChanges
+                }
+            }
+        })
+        return result
     }, [plans, groupBy])
 
-    const envs = Object.keys(envPlans).sort()
-    const timeAgo = latestPlan ? formatDistanceToNow(new Date(latestPlan.timestamp), { addSuffix: true }) : null
+    const envs = Object.keys(envAggregated).sort()
+    const timeAgo = aggregatedPlan ? formatDistanceToNow(new Date(aggregatedPlan.timestamp), { addSuffix: true }) : null
 
     return (
         <div className="p-6 h-full flex flex-col space-y-6">
@@ -88,10 +160,10 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
                                     <Box className="h-5 w-5 text-blue-500" />
                                     {envName}
                                     <span className="text-xs font-normal text-muted-foreground bg-zinc-100 px-2 py-0.5 rounded-full ml-2">
-                                        {formatDistanceToNow(new Date(envPlans[envName].timestamp), { addSuffix: true })}
+                                        {formatDistanceToNow(new Date(envAggregated[envName].timestamp), { addSuffix: true })}
                                     </span>
                                 </h2>
-                                <ResourceList plan={envPlans[envName]} groupBy="none" />
+                                <ResourceList plan={envAggregated[envName]} groupBy="none" />
                             </div>
                         ))}
                     </div>
@@ -99,8 +171,8 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
 
                 {/* CASE 2: Single Env View (grouped by RG, Type, or None) */}
                 {groupBy !== "environment" && (
-                    latestPlan ? (
-                        <ResourceList plan={latestPlan} groupBy={groupBy} />
+                    aggregatedPlan ? (
+                        <ResourceList plan={aggregatedPlan} groupBy={groupBy} />
                     ) : (
                         <div className="h-full flex items-center justify-center text-muted-foreground">
                             {plans ? "No plan data available." : "Loading..."}
