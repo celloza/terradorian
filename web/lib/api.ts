@@ -108,3 +108,12 @@ export const deleteEnvironment = async (project_id: string, environment: string)
     if (!res.ok) throw new Error("Failed to delete environment");
     return true;
 };
+
+export const deletePlan = async (plan_id: string) => {
+    const res = await fetch(`${API_BASE}/delete_plan/${plan_id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) throw new Error("Failed to delete plan");
+    return true;
+};
