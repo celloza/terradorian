@@ -3,13 +3,15 @@
 import { useState, use } from "react"
 import useSWR from "swr"
 import { useRouter } from "next/navigation"
-import { fetcher, deleteEnvironment, listComponents, deleteComponent } from "@/lib/api"
+import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Trash2, AlertTriangle, X } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Trash2, AlertTriangle, X, Bell, Mail, Slack } from "lucide-react"
 import { toast } from "sonner"
 
 export default function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,6 +25,52 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     const [isDeleting, setIsDeleting] = useState(false)
     const [confirmName, setConfirmName] = useState("")
     const [deleteLoading, setDeleteLoading] = useState(false)
+
+    // Notifications State
+    const [settingsLoading, setSettingsLoading] = useState(false)
+    const [notifState, setNotifState] = useState<any>({
+        slack: { enabled: false, webhook_url: "" },
+        email: {
+            enabled: false,
+            recipients: [],
+            schedule: { day: "Monday", time: "09:00" },
+            smtp: { host: "", port: 587, username: "", password: "", secure: true }
+        }
+    })
+
+    // Load initial state from project
+    const [loaded, setLoaded] = useState(false)
+    if (project && project.notifications && !loaded) {
+        setNotifState(project.notifications)
+        setLoaded(true)
+    }
+
+    const handleSaveNotifications = async () => {
+        setSettingsLoading(true)
+        try {
+            await updateProjectSettings(id, { notifications: notifState })
+            toast.success("Notification settings saved")
+        } catch (e) {
+            toast.error("Failed to save settings")
+        } finally {
+            setSettingsLoading(false)
+        }
+    }
+
+    const updateNested = (path: string[], value: any) => {
+        setNotifState((prev: any) => {
+            const newState = { ...prev }
+            let current = newState
+            for (let i = 0; i < path.length - 1; i++) {
+                current[path[i]] = { ...current[path[i]] }
+                current = current[path[i]]
+            }
+            current[path[path.length - 1]] = value
+            return newState
+        })
+    }
+
+
 
     const handleDelete = async () => {
         if (!project || confirmName !== project.name) return
@@ -85,6 +133,144 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                 <h1 className="text-2xl font-bold tracking-tight text-[#14161A]">Project Settings</h1>
                 <p className="text-muted-foreground">Manage project lifecycle.</p>
             </div>
+
+            {/* Notifications Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center"><Bell className="mr-2 h-5 w-5" /> Notifications</CardTitle>
+                    <CardDescription>Configure tactical alerts and strategic reports.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {/* Slack Section */}
+                    <div className="space-y-4 border-b pb-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <Slack className="h-5 w-5 text-zinc-500" />
+                                <Label htmlFor="slack-enabled" className="text-base font-medium">Slack Alerts</Label>
+                            </div>
+                            <Switch
+                                id="slack-enabled"
+                                checked={notifState.slack.enabled}
+                                onCheckedChange={(c) => updateNested(['slack', 'enabled'], c)}
+                            />
+                        </div>
+                        {notifState.slack.enabled && (
+                            <div className="ml-7 space-y-2">
+                                <Label>Webhook URL</Label>
+                                <Input
+                                    placeholder="https://hooks.slack.com/services/..."
+                                    value={notifState.slack.webhook_url || ""}
+                                    onChange={(e) => updateNested(['slack', 'webhook_url'], e.target.value)}
+                                />
+                                <p className="text-xs text-muted-foreground">Alerts will be sent here when drift is detected.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Email Section */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <Mail className="h-5 w-5 text-zinc-500" />
+                                <Label htmlFor="email-enabled" className="text-base font-medium">Email Reports</Label>
+                            </div>
+                            <Switch
+                                id="email-enabled"
+                                checked={notifState.email.enabled}
+                                onCheckedChange={(c) => updateNested(['email', 'enabled'], c)}
+                            />
+                        </div>
+
+                        {notifState.email.enabled && (
+                            <div className="ml-7 space-y-6">
+                                <div className="space-y-2">
+                                    <Label>Recipients (Comma separated)</Label>
+                                    <Input
+                                        placeholder="user@example.com, team@example.com"
+                                        value={notifState.email.recipients.join(", ")}
+                                        onChange={(e) => updateNested(['email', 'recipients'], e.target.value.split(",").map(s => s.trim()))}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Report Day</Label>
+                                        <Select
+                                            value={notifState.email.schedule.day}
+                                            onValueChange={(v) => updateNested(['email', 'schedule', 'day'], v)}
+                                        >
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(d => (
+                                                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Time (UTC)</Label>
+                                        <Select
+                                            value={notifState.email.schedule.time}
+                                            onValueChange={(v) => updateNested(['email', 'schedule', 'time'], v)}
+                                        >
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                {Array.from({ length: 24 }).map((_, i) => {
+                                                    const t = `${i.toString().padStart(2, '0')}:00`
+                                                    return <SelectItem key={t} value={t}>{t}</SelectItem>
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 pt-2 border-t">
+                                    <Label className="text-muted-foreground text-xs uppercase tracking-wider font-bold">SMTP Settings</Label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Host</Label>
+                                            <Input
+                                                placeholder="smtp.example.com"
+                                                value={notifState.email.smtp.host}
+                                                onChange={(e) => updateNested(['email', 'smtp', 'host'], e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Port</Label>
+                                            <Input
+                                                placeholder="587"
+                                                value={notifState.email.smtp.port}
+                                                onChange={(e) => updateNested(['email', 'smtp', 'port'], parseInt(e.target.value) || 587)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Username</Label>
+                                            <Input
+                                                value={notifState.email.smtp.username}
+                                                onChange={(e) => updateNested(['email', 'smtp', 'username'], e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Password</Label>
+                                            <Input
+                                                type="password"
+                                                value={notifState.email.smtp.password}
+                                                onChange={(e) => updateNested(['email', 'smtp', 'password'], e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <Button onClick={handleSaveNotifications} disabled={settingsLoading}>
+                        {settingsLoading ? "Saving..." : "Save Changes"}
+                    </Button>
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader>
