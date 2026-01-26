@@ -10,3 +10,5 @@ from blueprints.settings_api import bp as settings_bp
 app.register_functions(settings_bp)
 from blueprints.health import bp as health_bp
 app.register_functions(health_bp)
+from blueprints.reporting import bp as reporting_bp
+app.register_functions(reporting_bp)
