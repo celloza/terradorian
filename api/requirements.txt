@@ -3,3 +3,4 @@ pydantic
 azure-cosmos
 azure-storage-blob
 azure-identity
+requests
