@@ -182,12 +182,13 @@ def list_components(req: func.HttpRequest) -> func.HttpResponse:
 @bp.route(route="list_plans", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
 def list_plans(req: func.HttpRequest) -> func.HttpResponse:
     project_id = req.params.get('project_id')
+    component_id = req.params.get('component_id')
     environment = req.params.get('environment')
     
     try:
         container = get_container("plans", "/id")
         
-        query = "SELECT * FROM c"
+        query = "SELECT c.id, c.project_id, c.component_id, c.environment, c.timestamp, c.dependencies, c.resource_graph, {'resource_changes': c.terraform_plan.resource_changes} AS terraform_plan FROM c"
         where_clauses = []
         parameters = []
         
@@ -198,6 +199,10 @@ def list_plans(req: func.HttpRequest) -> func.HttpResponse:
         if environment:
             where_clauses.append("c.environment = @env")
             parameters.append({"name": "@env", "value": environment})
+
+        if component_id:
+            where_clauses.append("c.component_id = @cid")
+            parameters.append({"name": "@cid", "value": component_id})
             
         if where_clauses:
             query += " WHERE " + " AND ".join(where_clauses)

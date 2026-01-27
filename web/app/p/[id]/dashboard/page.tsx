@@ -18,7 +18,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const searchParams = useSearchParams()
     const env = searchParams.get("env") || "dev"
 
-    const { data: plans, mutate } = useSWR(listPlans(id, env), fetcher)
+    const { data: plans, mutate } = useSWR(listPlans(id, undefined, env), fetcher)
 
     const [deleteOpen, setDeleteOpen] = useState(false)
     const [planToDelete, setPlanToDelete] = useState<any>(null)

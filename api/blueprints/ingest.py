@@ -207,7 +207,192 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
     else:
         doc_dict['timestamp'] = datetime.utcnow().isoformat()
 
-    # 3. Upload Full Plan to Blob Storage
+    # --- Heuristic Dependency Scanning ---
+    try:
+        # Fetch all components for this project to build a lookup map
+        # Optimization: cache this? For now, fetch on every ingest is okay (low volume)
+        comp_container = get_container("components")
+        project_components = list(comp_container.query_items(
+            query="SELECT c.id, c.name FROM c WHERE c.project_id = @pid",
+            parameters=[{"name": "@pid", "value": doc_dict['project_id']}],
+            enable_cross_partition_query=True
+        ))
+        
+        # Map normalized name -> ID
+        comp_map = {c['name'].lower(): c['id'] for c in project_components if c['id'] != doc_dict['component_id']}
+        
+        found_dependencies = set()
+        
+        # Helper to check string for component names
+        def check_text(text):
+            if not isinstance(text, str): return
+            text_lower = text.lower()
+            for c_name, c_id in comp_map.items():
+                if c_name in text_lower:
+                    found_dependencies.add(c_id)
+
+        # 1. Scan Variables
+        if 'variables' in tf_plan:
+            for var_key, var_val in tf_plan['variables'].items():
+                val = var_val.get('value')
+                check_text(val)
+                
+        # 2. Scan Configuration Resources (Managed & Data)
+        # Structure: plan['configuration']['root_module']['resources'] -> list of dicts
+        config = tf_plan.get('configuration', {})
+        root_module = config.get('root_module', {})
+        resources = root_module.get('resources', [])
+        
+        for res in resources:
+            # Check Resource Name
+            check_text(res.get('name'))
+            
+            # Check Expressions (Arguments)
+            # expressions is a dict of input args. Values can be complex.
+            # We'll do a shallow scan of string values.
+            expressions = res.get('expressions', {})
+            for expr_key, expr_val in expressions.items():
+                # expr_val could be {"constant_value": "..."} or references
+                if isinstance(expr_val, dict):
+                    check_text(expr_val.get('constant_value'))
+                    
+        doc_dict['dependencies'] = list(found_dependencies)
+        logging.info(f"Dependency Scan complete. Found: {len(found_dependencies)} links.")
+        
+    except Exception as e:
+        logging.error(f"Dependency scanning failed: {e}")
+        # Non-critical, continue
+        doc_dict['dependencies'] = []
+
+    # 2.x Build Resource Graph (New)
+    try:
+        resource_graph = {"nodes": [], "edges": []}
+        
+        # Helper to recursively parse modules
+        def parse_module(module, parent_path=""):
+            for res in module.get("resources", []):
+                res_addr = res.get("address")
+                res_type = res.get("type")
+                res_name = res.get("name")
+                
+                # Check if this resource is actually change-managed (exists in resource_changes)
+                # Optimization: We might want all config resources even if no-op, to show full structure?
+                # User asked for "latest plan", usually implies active things.
+                # But graph is structural. Let's include everything found in config.
+                
+                node = {
+                    "id": res_addr,
+                    "label": res_name,
+                    "type": res_type,
+                    "group": res_addr.split('.')[0] if '.' in res_addr else "root" # heuristic grouping
+                }
+                resource_graph["nodes"].append(node)
+                
+                # explicit depends_on
+                for dep in res.get("depends_on", []):
+                     resource_graph["edges"].append({"source": dep, "target": res_addr, "type": "explicit"})
+                     
+                # implicit references in expressions
+                expressions = res.get("expressions", {})
+                for expr_key, expr_val in expressions.items():
+                    if isinstance(expr_val, dict) and "references" in expr_val:
+                        for ref in expr_val["references"]:
+                             # ref can be "azurerm_resource_group.rg.name". We need "azurerm_resource_group.rg"
+                             # Heuristic: match against known nodes?
+                             # Or just strip attributes.
+                             # Terraform addresses are usually [module.path].type.name
+                             # Reference might include attribute access.
+                             
+                             # Simple heuristic: Split by dot, take first 2 parts if root, or more if module?
+                             # Better: Check if ref starts with a known node ID.
+                             # Since we are building nodes on fly, we might settle for just storing the raw ref and cleaning in frontend?
+                             # No, backend should do best effort.
+                             
+                             # Let's clean attribute access:
+                             # "azurerm_resource_group.rg.name" -> "azurerm_resource_group.rg"
+                             # "module.x.azurerm_resource_group.rg.id" -> "module.x.azurerm_resource_group.rg"
+                             
+                             # Assumption: Resource addresses don't have dots in names, only as separators.
+                             # Types have underscores.
+                             
+                             # Edge creation (we'll filter invalid ones later or let frontend handle dangling edges)
+                             resource_graph["edges"].append({"source": ref, "target": res_addr, "type": "implicit"})
+
+            for child in module.get("child_modules", []):
+                parse_module(child)
+
+        config = tf_plan.get("configuration", {})
+        root = config.get("root_module", {})
+        parse_module(root)
+        
+        # Post-process edges to map attributes to resource IDs
+        # 1. Collect all Node IDs
+        node_ids = set(n["id"] for n in resource_graph["nodes"])
+        
+        valid_edges = []
+        for edge in resource_graph["edges"]:
+            src = edge["source"]
+            target = edge["target"]
+            
+            # Try exact match
+            if src in node_ids:
+                valid_edges.append(edge)
+                continue
+                
+            # Try removing last segment (attribute) until match found
+            parts = src.split('.')
+            while len(parts) > 1:
+                parts.pop()
+                candidate = ".".join(parts)
+                if candidate in node_ids:
+                    edge["source"] = candidate
+                    valid_edges.append(edge)
+                    break
+                    
+        resource_graph["edges"] = valid_edges
+        
+        doc_dict['resource_graph'] = resource_graph
+        logging.info(f"Resource Graph built: {len(resource_graph['nodes'])} nodes, {len(resource_graph['edges'])} edges")
+        
+    except Exception as e:
+        logging.error(f"Failed to build resource graph: {e}")
+        doc_dict['resource_graph'] = {"nodes": [], "edges": []}
+
+    # 3. Check for Stale Plan (Moved BEFORE Upload)
+    try:
+        container = get_container("plans", "/id")
+        
+        query = """
+            SELECT TOP 1 c.timestamp, c.id
+            FROM c 
+            WHERE c.component_id = @cid AND c.environment = @env 
+            ORDER BY c.timestamp DESC
+        """
+        params = [
+            {"name": "@cid", "value": doc_dict['component_id']},
+            {"name": "@env", "value": doc_dict['environment']}
+        ]
+        
+        existing_plans = list(container.query_items(
+            query=query, 
+            parameters=params, 
+            enable_cross_partition_query=True
+        ))
+        
+        if existing_plans:
+            latest_ts = existing_plans[0]['timestamp']
+            if doc_dict['timestamp'] <= latest_ts:
+                return func.HttpResponse(
+                    f"Stale Plan: Uploaded plan timestamp ({doc_dict['timestamp']}) is not newer than latest plan ({latest_ts}).",
+                    status_code=400
+                )
+    except Exception as e:
+        # If DB check fails, we probably shouldn't proceed? Or log and proceed?
+        # Proceeding is risky if DB is down. Failing is safer.
+        logging.error(f"Failed to check for stale plans: {e}")
+        return func.HttpResponse(f"Database Error checking stale plans: {e}", status_code=500)
+
+    # 4. Upload Full Plan to Blob Storage
     # Import inside function to avoid circular deps if any (though best at top)
     from shared.storage import upload_plan_blob
     
@@ -231,37 +416,7 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(error_msg, status_code=status_code)
 
     try:
-        container = get_container("plans", "/id")
-        
-        # Validation: Check for Stale Plan
-        query = """
-            SELECT TOP 1 c.timestamp, c.id, c.terraform_plan
-            FROM c 
-            WHERE c.component_id = @cid AND c.environment = @env 
-            ORDER BY c.timestamp DESC
-        """
-        params = [
-            {"name": "@cid", "value": doc_dict['component_id']},
-            {"name": "@env", "value": doc_dict['environment']}
-        ]
-        
-        existing_plans = list(container.query_items(
-            query=query, 
-            parameters=params, 
-            enable_cross_partition_query=True
-        ))
-        
-        if existing_plans:
-            latest_ts = existing_plans[0]['timestamp']
-            if doc_dict['timestamp'] <= latest_ts:
-                # Warning only? Or block? Stale plans might technically be valid if re-running old verification?
-                # For now keeping it as 400 as per previous logic, but improved message.
-                return func.HttpResponse(
-                    f"Stale Plan: Uploaded plan timestamp ({doc_dict['timestamp']}) is not newer than latest plan ({latest_ts}).",
-                    status_code=400
-                )
-
-        # 4. Prune Cosmos Document (Hybrid Approach)
+        # 5. Prune Cosmos Document (Hybrid Approach)
         pruned_plan = {}
         # Keep Metadata
         for key in ['format_version', 'terraform_version', 'timestamp']:
@@ -298,79 +453,71 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
 
         container.upsert_item(doc_dict)
         
-        # 5. Drift Notification (Slack)
-        try:
-            notifications = project_doc.get('notifications', {})
-            slack_settings = notifications.get('slack', {})
-            
-            if slack_settings.get('enabled') and slack_settings.get('webhook_url'):
-                # Calculate current changes
-                curr_changes = 0
-                if 'resource_changes' in doc_dict['terraform_plan']:
-                    for rc in doc_dict['terraform_plan']['resource_changes']:
-                         actions = rc.get('change', {}).get('actions', [])
-                         if any(a in ['create', 'update', 'delete'] for a in actions):
-                             curr_changes += 1
-                
-                # Check previous state
-                prev_changes = 0
-                was_in_sync = True # Default to True (alert on first drift?) or False?
-                # User said: "previously was in sync". If no history, maybe don't alert yet?
-                # If existing_plans is empty (fresh component), and it has drift, is that "previously in sync"? No.
-                
-                if existing_plans:
-                     # Calculate previous changes from the stored plan
-                     try:
-                         # Fetch previous plan to check if it was 0-drift
-                         prev_id = existing_plans[0]['id']
-                         input_ts = existing_plans[0]['timestamp']
-                         
-                         # We need to read the full document to access 'terraform_plan.resource_changes' 
-                         # because our query only selected limited fields.
-                         prev_plan_doc = container.read_item(item=prev_id, partition_key=prev_id)
-                         
-                         if 'terraform_plan' in prev_plan_doc and 'resource_changes' in prev_plan_doc['terraform_plan']:
-                             for rc in prev_plan_doc['terraform_plan']['resource_changes']:
-                                 actions = rc.get('change', {}).get('actions', [])
-                                 if any(a in ['create', 'update', 'delete'] for a in actions):
-                                     prev_changes += 1
-                         
-                         if prev_changes == 0:
-                             should_alert = True
-                             logging.info(f"Drift Transition: Previous plan {prev_id} had 0 changes. Current has {curr_changes}. Alerting.")
-                         else:
-                             logging.info(f"Drift Continuation: Previous plan {prev_id} had {prev_changes} changes. Current has {curr_changes}. No Alert.")
-                             
-                     except Exception as ex:
-                         logging.warning(f"Could not fetch previous plan details for drift comparison: {ex}")
-                         should_alert = False
-
-                if should_alert:
-                    logging.info(f"Drift transition detected (0 -> {curr_changes}). Sending Slack Alert.")
-                    plan_url = None
-                    
-                    try:
-                        send_slack_alert(
-                            webhook_url=slack_settings['webhook_url'],
-                            project_name=doc_dict['project_name'],
-                            component_name=doc_dict['component_name'],
-                            environment=doc_dict['environment'],
-                            drift_summary=doc_dict['terraform_plan'],
-                            plan_url=plan_url
-                        )
-                    except Exception as slack_ex:
-                         logging.error(f"Failed to send slack alert: {slack_ex}")
-        except Exception as e:
-            logging.error(f"Notification logic failed: {e}") 
-            # Don't fail the ingest
-            pass
+    except exceptions.CosmosHttpResponseError as e:
         logging.error(f"Cosmos DB Error: {e.status_code} - {e.message}")
         if e.status_code == 413:
-            return func.HttpResponse("Plan too large for Database. Please reduce plan size or contact support.", status_code=413)
+             return func.HttpResponse("Plan too large for Database. Please reduce plan size or contact support.", status_code=413)
         return func.HttpResponse(f"Database Error ({e.status_code}): {e.message}", status_code=500)
     except Exception as e:
         logging.error(f"Upsert failed: {e}")
         return func.HttpResponse(f"Internal Error saving to DB: {e}", status_code=500)
+
+    # 5. Drift Notification (Slack) - Post-Success Logic
+    try:
+        notifications = project_doc.get('notifications', {})
+        slack_settings = notifications.get('slack', {})
+        
+        if slack_settings.get('enabled') and slack_settings.get('webhook_url'):
+            # Calculate current changes
+            curr_changes = 0
+            if 'resource_changes' in doc_dict['terraform_plan']:
+                for rc in doc_dict['terraform_plan']['resource_changes']:
+                        actions = rc.get('change', {}).get('actions', [])
+                        if any(a in ['create', 'update', 'delete'] for a in actions):
+                            curr_changes += 1
+            
+            # Check previous state
+            prev_changes = 0
+            # Logic for drift alerting...
+            # Simplified for fix: just notify if drift > 0 and transitions?
+            # Keeping original alert logic but inside safe block
+            
+            should_alert = False
+            if existing_plans:
+                    try:
+                        prev_id = existing_plans[0]['id']
+                        # Re-read full doc for drift comparison since query was lightweight
+                        prev_plan_doc = container.read_item(item=prev_id, partition_key=prev_id)
+                        
+                        if 'terraform_plan' in prev_plan_doc and 'resource_changes' in prev_plan_doc['terraform_plan']:
+                            for rc in prev_plan_doc['terraform_plan']['resource_changes']:
+                                actions = rc.get('change', {}).get('actions', [])
+                                if any(a in ['create', 'update', 'delete'] for a in actions):
+                                    prev_changes += 1
+                        
+                        if prev_changes == 0 and curr_changes > 0:
+                            should_alert = True
+                            logging.info(f"Drift Transition (0->{curr_changes}). Alerting.")
+                            
+                    except Exception as ex:
+                        logging.warning(f"Could not fetch previous plan for drift: {ex}")
+
+            if should_alert:
+                try:
+                    send_slack_alert(
+                        webhook_url=slack_settings['webhook_url'],
+                        project_name=doc_dict['project_name'],
+                        component_name=doc_dict['component_name'],
+                        environment=doc_dict['environment'],
+                        drift_summary=doc_dict['terraform_plan'],
+                        plan_url=None
+                    )
+                except Exception as slack_ex:
+                        logging.error(f"Failed to send slack alert: {slack_ex}")
+    except Exception as e:
+        logging.error(f"Notification logic warning: {e}") 
+        # Don't fail the ingest
+        pass
 
     return func.HttpResponse(
         body=json.dumps({"id": doc_dict['id'], "message": "Plan uploaded successfully"}),
