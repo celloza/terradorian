@@ -50,60 +50,43 @@ export function ContextSidebar() {
 
                     {/* Environment Links */}
                     {environments.map((env: string) => {
-                        const isEnvActive = pathname.includes("/dashboard") && (currentEnv === env || (!currentEnv && env === 'dev')) // Default to dev if no param, but that logic is in page.
-                        // Actually, cleaner to rely on strict param matching if possible, but let's just highlight if param matches.
-                        // If no param is present, the dashboard defaults to 'dev', so highlight 'dev'.
-                        const isActive = pathname.includes("/dashboard") && (currentEnv === env || (!currentEnv && env === 'dev'))
+                        const isEnvDashboardActive = pathname.includes("/dashboard") && (currentEnv === env || (!currentEnv && env === 'dev'))
+                        const isEnvGraphActive = pathname.includes("/graph") && (currentEnv === env || (!currentEnv && env === 'dev'))
 
                         return (
-                            <Button
-                                key={env}
-                                variant="ghost"
-                                asChild
-                                className={cn(
-                                    "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
-                                    isActive && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
-                                )}
-                            >
-                                <Link href={`/p/${projectId}/dashboard?env=${env}`}>
-                                    <LayoutDashboard className="mr-3 h-4 w-4" />
+                            <div key={env} className="mb-2">
+                                <div className="px-4 py-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">
                                     {env}
-                                </Link>
-                            </Button>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    asChild
+                                    className={cn(
+                                        "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 pl-6",
+                                        isEnvDashboardActive && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
+                                    )}
+                                >
+                                    <Link href={`/p/${projectId}/dashboard?env=${env}`}>
+                                        <div className="w-1 h-1 rounded-full bg-zinc-500 mr-2" />
+                                        Dashboard
+                                    </Link>
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    asChild
+                                    className={cn(
+                                        "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 pl-6",
+                                        isEnvGraphActive && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
+                                    )}
+                                >
+                                    <Link href={`/p/${projectId}/graph?env=${env}`}>
+                                        <div className="w-1 h-1 rounded-full bg-zinc-500 mr-2" />
+                                        Graph
+                                    </Link>
+                                </Button>
+                            </div>
                         )
                     })}
-
-                    <div className="pt-4 pb-2 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                        Tools
-                    </div>
-
-                    <Button
-                        variant="ghost"
-                        asChild
-                        className={cn(
-                            "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
-                            isExplore && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
-                        )}
-                    >
-                        <Link href={`/p/${projectId}/explore`}>
-                            <Compass className="mr-3 h-4 w-4" />
-                            Explore
-                        </Link>
-                    </Button>
-
-                    <Button
-                        variant="ghost"
-                        asChild
-                        className={cn(
-                            "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
-                            pathname.includes("/graph") && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
-                        )}
-                    >
-                        <Link href={`/p/${projectId}/graph`}>
-                            <Activity className="mr-3 h-4 w-4" /> {/* Reusing Activity or BarChart2/Share2 */}
-                            Graph
-                        </Link>
-                    </Button>
                 </div>
             </div>
 
