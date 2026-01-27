@@ -81,8 +81,11 @@ export const manualIngest = async (component_id: string, environment: string, te
     return res.json();
 };
 
-export const listPlans = (project_id: string, environment?: string) => {
+export const listPlans = (project_id: string, component_id?: string, environment?: string) => {
     let url = `/list_plans?project_id=${project_id}`;
+    if (component_id) {
+        url += `&component_id=${component_id}`;
+    }
     if (environment) {
         url += `&environment=${environment}`;
     }
