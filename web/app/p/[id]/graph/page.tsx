@@ -1,6 +1,7 @@
 "use client"
 
 import { use, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { fetcher, listComponents, listPlans } from "@/lib/api"
 import { DependencyGraph } from "@/components/dependency-graph"
@@ -9,6 +10,8 @@ import { BarChart2 } from "lucide-react"
 export default function GraphPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
     const projectId = id
+    const searchParams = useSearchParams()
+    const env = searchParams.get("env") || "dev"
 
     const { data: components } = useSWR(listComponents(projectId), fetcher)
 
@@ -19,15 +22,15 @@ export default function GraphPage({ params }: { params: Promise<{ id: string }> 
         const fetchGraphData = async () => {
             if (!components) return
             const promises = components.map(async (c: any) => {
-                // Fetch latest plan for this component
-                const p = await fetcher(listPlans(projectId, c.id))
+                // Fetch latest plan for this component in this environment
+                const p = await fetcher(listPlans(projectId, c.id, env))
                 return p && p.length > 0 ? p[0] : null
             })
             const results = await Promise.all(promises)
             setAllGraphPlans(results.filter(r => r !== null))
         }
         fetchGraphData()
-    }, [components, projectId])
+    }, [components, projectId, env])
 
     return (
         <div className="p-8 space-y-6">
