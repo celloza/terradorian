@@ -29,7 +29,8 @@ def get_blob_service_client():
         return BlobServiceClient(account_url=account_url, credential=DefaultAzureCredential())
         
     # Last Resort (Local Dev default)
-    return BlobServiceClient.from_connection_string("UseDevelopmentStorage=true")
+    # Azurite often lags behind the latest API version. We pin it to a stable recent version supported by Azurite 3.x
+    return BlobServiceClient.from_connection_string("UseDevelopmentStorage=true", api_version="2019-12-12")
 
 def upload_plan_blob(plan_data: dict, project_id: str, component_id: str, environment: str, plan_id: str) -> str:
     """
