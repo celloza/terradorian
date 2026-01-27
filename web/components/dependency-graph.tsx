@@ -83,7 +83,7 @@ export function DependencyGraph({ components, plans }: DependencyGraphProps) {
 
                 // Extract positions
                 g.nodes().forEach((n) => {
-                    const node = g.node(n)
+                    const node: any = g.node(n)
                     const actions = changes.get(n)
                     const { background, borderColor } = getStyleForActions(actions)
 
