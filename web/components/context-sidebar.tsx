@@ -90,6 +90,20 @@ export function ContextSidebar() {
                             Explore
                         </Link>
                     </Button>
+
+                    <Button
+                        variant="ghost"
+                        asChild
+                        className={cn(
+                            "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
+                            pathname.includes("/graph") && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
+                        )}
+                    >
+                        <Link href={`/p/${projectId}/graph`}>
+                            <Activity className="mr-3 h-4 w-4" /> {/* Reusing Activity or BarChart2/Share2 */}
+                            Graph
+                        </Link>
+                    </Button>
                 </div>
             </div>
 

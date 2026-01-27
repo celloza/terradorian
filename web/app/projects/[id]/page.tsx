@@ -15,7 +15,9 @@ import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ResourceList } from "@/components/resource-list"
 import { ProjectDashboard } from "@/components/project-dashboard"
+import { DependencyGraph } from "@/components/dependency-graph"
 import { formatDistanceToNow } from "date-fns"
+import { useEffect } from "react"
 
 export default function ProjectDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -26,7 +28,7 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
     const project = projects?.find((p: any) => p.id === projectId)
 
     const { data: components, mutate: mutateComponents } = useSWR(listComponents(projectId), fetcher)
-    const { data: plans } = useSWR(listPlans(projectId), fetcher)
+    const { data: plans } = useSWR(listPlans(projectId, undefined), fetcher)
 
     const [isCreating, setIsCreating] = useState(false)
     const [compName, setCompName] = useState("")
@@ -52,6 +54,25 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
             alert("Failed to generate PAT")
         }
     }
+
+    // Fetch Latest Plan for EACH component for the Graph
+    const [allGraphPlans, setAllGraphPlans] = useState<any[]>([])
+
+    useEffect(() => {
+        const fetchGraphData = async () => {
+            if (!components) return
+            const promises = components.map(async (c: any) => {
+                const p = await listPlans(projectId, c.id) // Adjusted signature if needed, or query params? 
+                // Wait, listPlans in api.ts might not support second arg yet? 
+                // I need to check api.ts. If it uses params object it's fine.
+                // Assuming listPlans(projectId, undefined, componentId) or similar.
+                return p && p.length > 0 ? p[0] : null
+            })
+            const results = await Promise.all(promises)
+            setAllGraphPlans(results.filter(r => r !== null))
+        }
+        fetchGraphData()
+    }, [components, projectId])
 
     if (!project) return <div>Loading Project...</div>
 
@@ -218,12 +239,9 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ id: s
                 </TabsContent>
 
                 <TabsContent value="graph" className="mt-6">
-                    <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/10">
-                        <BarChart2 className="h-16 w-16 text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-medium">Resource Graph</h3>
-                        <p className="text-muted-foreground text-center max-w-sm mt-2">
-                            Visual dependency graph of your Terraform resources is coming soon.
-                        </p>
+                    <div className="border rounded-lg p-4 bg-background">
+                        <p className="text-red-500 font-bold">DEBUG: GRAPH TAB ACTIVE</p>
+                        <DependencyGraph components={components || []} plans={allGraphPlans} />
                     </div>
                 </TabsContent>
             </Tabs>
