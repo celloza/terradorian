@@ -2,6 +2,7 @@
 
 import { use, useState } from "react"
 import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import useSWR from "swr"
 import { fetcher, listPlans, deletePlan } from "@/lib/api"
 import { ProjectDashboard } from "@/components/project-dashboard"
@@ -11,12 +12,13 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { History, EyeOff, Trash2 } from "lucide-react"
+import { History, EyeOff, Trash2, Network } from "lucide-react"
 
 export default function DashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
     const searchParams = useSearchParams()
     const env = searchParams.get("env") || "dev"
+    const projectId = id // Alias for clarity if needed, or just use id
 
     const { data: plans, mutate } = useSWR(listPlans(id, undefined, env), fetcher)
 
@@ -43,7 +45,15 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                     <h1 className="text-2xl font-bold tracking-tight text-[#14161A]">Environment <span className="text-muted-foreground font-normal text-lg ml-2">({env})</span></h1>
                     <p className="text-muted-foreground">Detailed drift analysis for this environment.</p>
                 </div>
-                <DashboardActionMenu onUploadComplete={() => mutate()} />
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" asChild>
+                        <Link href={`/p/${id}/graph?env=${env}`}>
+                            <Network className="mr-2 h-4 w-4" />
+                            View Graph
+                        </Link>
+                    </Button>
+                    <DashboardActionMenu onUploadComplete={() => mutate()} />
+                </div>
             </div>
 
             <ProjectDashboard plans={plans} />
@@ -134,6 +144,6 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     )
 }
