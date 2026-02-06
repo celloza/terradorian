@@ -1,9 +1,10 @@
 ---
 description: How to deploy the Next.js Web App to Azure using GitHub Releases
 ---
-# Azure Web App Deployment (Release & Restart)
+# Azure Stack Deployment (Release & Restart)
 
-This workflow describes how to deploy the Terradorian Web App to Azure by creating a GitHub Release and restarting the App Service.
+This workflow describes how to deploy the Terradorian **Web App** and **API** to Azure by creating a GitHub Release.
+Both services are configured with `WEBSITE_RUN_FROM_PACKAGE`, pointing to the artifacts (`web.zip` and `api.zip`) attached to the latest release.
 
 ## Prerequisites
 - GitHub CLI (`gh`) authenticated.
@@ -25,26 +26,28 @@ This workflow describes how to deploy the Terradorian Web App to Azure by creati
    ```
 
 3. **Create GitHub Release**
-   - Create a release tag. This triggers the GitHub Action `build-release.yml`.
+   - Create a release tag. This triggers the GitHub Action `build-release.yml` which builds and uploads `web.zip` and `api.zip`.
    ```powershell
    // turbo
    gh release create v0.0.x --generate-notes
    ```
 
 4. **Monitor Build**
-   - **CRITICAL**: Wait for the GitHub Action to complete successfully. The Web App needs the built artifacts from this run.
+   - **CRITICAL**: Wait for the GitHub Action to complete successfully.
    ```powershell
    gh run list
    gh run watch <RUN_ID> --exit-status
    ```
 
-5. **Restart Web App**
-   - Restarting the app forces it to re-download the package from the GitHub Release URL (via `WEBSITE_RUN_FROM_PACKAGE`).
+5. **Restart Services**
+   - Restarting the apps forces them to re-download the package from the GitHub Release URL.
    ```powershell
    // turbo
    az webapp restart --name web-terradorian-dev --resource-group terradorian
+   az webapp restart --name func-terradorian-dev --resource-group terradorian
    ```
 
 6. **Verify**
    - Visit the web app URL.
    - Check `Settings` or `Console` for the new version number.
+   - Verify API calls (e.g. data in Dashboard).

@@ -59,4 +59,4 @@ If ingestion fails with 500/RemoteDisconnected:
 3.  **This Guide**: If you change project structure or introduce new patterns, update this file (`.agent/skills/terradorian_guide.md`) so future agents are aware of the changes.
 
 ## Workflows
-- **Web Deployment**: See [.agent/workflows/deploy-web.md](file:///c:/repos/terradorian/.agent/workflows/deploy-web.md) for instructions on deploying the frontend via GitHub Releases.
+- **Web Deployment**: See [.agent/workflows/deploy-azure.md](file:///c:/repos/terradorian/.agent/workflows/deploy-azure.md) for instructions on deploying the frontend via GitHub Releases.
