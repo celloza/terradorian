@@ -48,45 +48,52 @@ export function ContextSidebar() {
                         Dashboards
                     </div>
 
-                    {/* Environment Links */}
+                    {/* Environments Header */}
+                    <div className="pt-4 pb-2 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                        Environments
+                    </div>
+
+                    {/* Environment Links - Flattened */}
                     {environments.map((env: string) => {
-                        const isEnvDashboardActive = pathname.includes("/dashboard") && (currentEnv === env || (!currentEnv && env === 'dev'))
-                        const isEnvGraphActive = pathname.includes("/graph") && (currentEnv === env || (!currentEnv && env === 'dev'))
+                        // Check if active: either dashboard or graph for this env
+                        const currentEnvParam = searchParams.get("env") || "dev"
+                        const isEnvActive = (pathname.includes("/dashboard") || pathname.includes("/graph")) && currentEnvParam === env
 
                         return (
-                            <div key={env} className="mb-2">
-                                <div className="px-4 py-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">
-                                    {env}
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    asChild
-                                    className={cn(
-                                        "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 pl-6",
-                                        isEnvDashboardActive && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
-                                    )}
-                                >
-                                    <Link href={`/p/${projectId}/dashboard?env=${env}`}>
-                                        <div className="w-1 h-1 rounded-full bg-zinc-500 mr-2" />
-                                        Dashboard
-                                    </Link>
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    asChild
-                                    className={cn(
-                                        "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 pl-6",
-                                        isEnvGraphActive && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
-                                    )}
-                                >
-                                    <Link href={`/p/${projectId}/graph?env=${env}`}>
-                                        <div className="w-1 h-1 rounded-full bg-zinc-500 mr-2" />
-                                        Graph
-                                    </Link>
-                                </Button>
-                            </div>
+                            <Button
+                                key={env}
+                                variant="ghost"
+                                asChild
+                                className={cn(
+                                    "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
+                                    isEnvActive && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
+                                )}
+                            >
+                                <Link href={`/p/${projectId}/dashboard?env=${env}`}>
+                                    <LayoutDashboard className="mr-3 h-4 w-4" />
+                                    {env.charAt(0).toUpperCase() + env.slice(1)}
+                                </Link>
+                            </Button>
                         )
                     })}
+
+                    <div className="pt-4 pb-2 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                        Tools
+                    </div>
+
+                    <Button
+                        variant="ghost"
+                        asChild
+                        className={cn(
+                            "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
+                            isExplore && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
+                        )}
+                    >
+                        <Link href={`/p/${projectId}/explore`}>
+                            <Compass className="mr-3 h-4 w-4" />
+                            Explore
+                        </Link>
+                    </Button>
                 </div>
             </div>
 

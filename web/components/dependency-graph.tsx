@@ -54,11 +54,21 @@ export function DependencyGraph({ components, plans }: DependencyGraphProps) {
 
                 // Helper to get color
                 const getStyleForActions = (actions: string[] | undefined) => {
-                    if (!actions) return { background: '#fff', borderColor: '#ddd' }
-                    if (actions.includes('create') && actions.includes('delete')) return { background: '#e0cffc', borderColor: '#b197fc' } // Replace (Purple)
-                    if (actions.includes('create')) return { background: '#d4edda', borderColor: '#c3e6cb' } // Create (Green)
-                    if (actions.includes('delete')) return { background: '#f8d7da', borderColor: '#f5c6cb' } // Delete (Red)
-                    if (actions.includes('update')) return { background: '#fff3cd', borderColor: '#ffeeba' } // Update (Orange)
+                    // Unchanged (Green)
+                    if (!actions || actions.length === 0 || actions.includes('no-op')) return { background: '#d4edda', borderColor: '#c3e6cb' }
+
+                    // Replace (Purple - similar to Create)
+                    if (actions.includes('create') && actions.includes('delete')) return { background: '#e0cffc', borderColor: '#b197fc' }
+
+                    // Create (Purple)
+                    if (actions.includes('create')) return { background: '#e0cffc', borderColor: '#b197fc' }
+
+                    // Delete (Red)
+                    if (actions.includes('delete')) return { background: '#f8d7da', borderColor: '#f5c6cb' }
+
+                    // Update (Orange)
+                    if (actions.includes('update')) return { background: '#fff3cd', borderColor: '#ffeeba' }
+
                     return { background: '#fff', borderColor: '#ddd' }
                 }
 
