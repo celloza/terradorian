@@ -186,11 +186,12 @@ function DriftChart({ plans }: { plans: any[] }) {
                 <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                     <XAxis
-                        dataKey="date"
+                        dataKey="timestamp"
                         stroke="#888888"
                         fontSize={12}
                         tickLine={false}
                         axisLine={false}
+                        tickFormatter={(value) => new Date(value).toLocaleDateString()}
                     />
                     <YAxis
                         stroke="#888888"
@@ -203,6 +204,7 @@ function DriftChart({ plans }: { plans: any[] }) {
                         contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", color: "#fff" }}
                         itemStyle={{ color: "#fff" }}
                         cursor={{ stroke: "#888888" }}
+                        labelFormatter={(value) => new Date(value).toLocaleString()}
                     />
 
                     {/* Detailed Lines (Dotted) */}
