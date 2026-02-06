@@ -57,3 +57,6 @@ If ingestion fails with 500/RemoteDisconnected:
 1.  **Architecture Changes**: Update `docs/ARCHITECTURE.md` if you change data flow, storage logic, or key components.
 2.  **New Endpoints/Features**: Update `docs/API.md` and `docs/SETUP.md`.
 3.  **This Guide**: If you change project structure or introduce new patterns, update this file (`.agent/skills/terradorian_guide.md`) so future agents are aware of the changes.
+
+## Workflows
+- **Web Deployment**: See [.agent/workflows/deploy-web.md](file:///c:/repos/terradorian/.agent/workflows/deploy-web.md) for instructions on deploying the frontend via GitHub Releases.

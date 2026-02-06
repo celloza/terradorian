@@ -188,7 +188,7 @@ def list_plans(req: func.HttpRequest) -> func.HttpResponse:
     try:
         container = get_container("plans", "/id")
         
-        query = "SELECT c.id, c.project_id, c.component_id, c.environment, c.timestamp, c.dependencies, c.resource_graph, {'resource_changes': c.terraform_plan.resource_changes} AS terraform_plan FROM c"
+        query = "SELECT c.id, c.project_id, c.component_name, c.component_id, c.environment, c.timestamp, c.terraform_version, c.providers, c.cloud_platform, c.dependencies, c.resource_graph, {'resource_changes': c.terraform_plan.resource_changes} AS terraform_plan FROM c"
         where_clauses = []
         parameters = []
         

@@ -44,9 +44,7 @@ export function ContextSidebar() {
                         </Link>
                     </Button>
 
-                    <div className="pt-4 pb-2 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                        Dashboards
-                    </div>
+
 
                     {/* Environments Header */}
                     <div className="pt-4 pb-2 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
