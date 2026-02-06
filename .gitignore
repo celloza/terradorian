@@ -224,7 +224,9 @@ manual_tests/
 .terraform.tfstate.lock.info
 
 # Local Tools
-tools/
+tools/*
+!tools/deploy.ps1
+!tools/deploy.config.sample.json
 infra/deploy-params.json
 api_v0.0.13.zip
 api_v0.0.15.zip
