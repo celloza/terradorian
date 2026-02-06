@@ -11,7 +11,28 @@ Both services are configured with `WEBSITE_RUN_FROM_PACKAGE`, pointing to the ar
 - Azure CLI (`az`) authenticated.
 - Semantic Versioning (check `git tag`).
 
-## Steps
+## Automated Deployment (Recommended)
+
+Run the PowerShell automation script to handle versioning, committing, releasing, and restarting.
+
+### 1. Setup
+1. Copy `tools/deploy.config.sample.json` to `tools/deploy.config.json`.
+2. Fill in your Azure Resource Group and App Names.
+
+### 2. Run Script
+```powershell
+.\tools\deploy.ps1 -Message "Refactored user dashboard"
+```
+This single command will:
+- Check Git status.
+- Bump the patch version (e.g., `0.0.53` -> `0.0.54`).
+- Commit and Push.
+- Create GitHub Release.
+- Wait for Build.
+- Restart Azure Apps.
+
+## Manual Deployment Steps
+If you need to deploy manually or debug the process:
 
 1. **Update Version**
    - Check current tags: `git tag --sort=-creatordate`
