@@ -17,6 +17,25 @@ if (-not (Test-Path $configPath)) {
 }
 $config = Get-Content $configPath | ConvertFrom-Json
 
+# 2. Azure Context Check
+Write-Host "Checking Azure context..." -ForegroundColor Cyan
+try {
+    $azAccount = az account show | ConvertFrom-Json
+}
+catch {
+    Write-Error "Not logged in to Azure. Please run 'az login' first."
+    exit 1
+}
+
+# Ensure correct subscription
+if ($config.subscriptionId -and $azAccount.id -ne $config.subscriptionId) {
+    Write-Host "Switching to subscription: $($config.subscriptionId)" -ForegroundColor Yellow
+    az account set --subscription $config.subscriptionId
+}
+else {
+    Write-Host "Using subscription: $($azAccount.name) ($($azAccount.id))" -ForegroundColor Gray
+}
+
 # 2. Get Current Version from Git Tags
 Write-Host "Fetching latest version from Git tags..." -ForegroundColor Cyan
 $latestTag = git tag --sort=-creatordate | Select-Object -First 1
