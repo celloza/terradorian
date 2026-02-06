@@ -17,7 +17,7 @@ Run the PowerShell automation script to handle versioning, committing, releasing
 
 ### 1. Setup
 1. Copy `tools/deploy.config.sample.json` to `tools/deploy.config.json`.
-2. Fill in your Azure Resource Group and App Names.
+2. Fill in your Azure **Subscription ID**, Resource Group, and App Names.
 
 ### 2. Run Script
 ```powershell
