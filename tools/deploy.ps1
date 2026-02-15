@@ -103,11 +103,16 @@ if (-not $SkipBuildWait) {
     }
 }
 
-# 6. Restart App Services
-Write-Host "Restarting App Services..." -ForegroundColor Cyan
-Write-Host "Restarting Web App: $($config.webAppName)"
-az webapp restart --name $config.webAppName --resource-group $config.resourceGroup
-Write-Host "Restarting Function App: $($config.functionAppName)"
-az webapp restart --name $config.functionAppName --resource-group $config.resourceGroup
+# 6. Update App Settings (Triggers Restart)
+Write-Host "Updating App Service Settings with Release URL..." -ForegroundColor Cyan
+
+$webUrl = "https://github.com/celloza/terradorian/releases/download/$tagName/web.zip"
+$funcUrl = "https://github.com/celloza/terradorian/releases/download/$tagName/api.zip"
+
+Write-Host "Updating Web App: $($config.webAppName) -> $webUrl"
+az webapp config appsettings set --name $config.webAppName --resource-group $config.resourceGroup --settings WEBSITE_RUN_FROM_PACKAGE=$webUrl
+
+Write-Host "Updating Function App: $($config.functionAppName) -> $funcUrl"
+az webapp config appsettings set --name $config.functionAppName --resource-group $config.resourceGroup --settings WEBSITE_RUN_FROM_PACKAGE=$funcUrl
 
 Write-Host "Deployment Complete! v$newVersion" -ForegroundColor Green
