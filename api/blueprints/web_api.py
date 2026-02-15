@@ -180,6 +180,36 @@ def list_components(req: func.HttpRequest) -> func.HttpResponse:
         )
     except Exception as e:
         return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="update_component", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def update_component(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        comp_data = UpdateComponentSchema(**req_body)
+    except (ValueError, ValidationError) as e:
+        return func.HttpResponse(f"Invalid Request: {e}", status_code=400)
+
+    try:
+        container = get_container("components", "/id")
+        comp_doc = container.read_item(item=comp_data.component_id, partition_key=comp_data.component_id)
+        
+        if comp_data.excluded_environments is not None:
+            comp_doc['excluded_environments'] = comp_data.excluded_environments
+
+        if comp_data.name:
+            comp_doc['name'] = comp_data.name
+
+        container.upsert_item(comp_doc)
+        
+        return func.HttpResponse(
+            body=json.dumps(comp_doc),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Component not found", status_code=404)
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
     
 @bp.route(route="list_plans", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
 def list_plans(req: func.HttpRequest) -> func.HttpResponse:
