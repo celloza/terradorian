@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Activity, CheckCircle2, AlertTriangle, HelpCircle, ArrowRight } from "lucide-react"
+import { DashboardActionMenu } from "@/components/dashboard-action-menu"
 
 export default function ProjectOverviewPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: projectId } = use(params)
@@ -15,7 +16,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
     // Data Fetching
     const { data: project } = useSWR("/list_projects", fetcher)
     const { data: components } = useSWR(() => `/list_components?project_id=${projectId}`, fetcher)
-    const { data: plans } = useSWR(() => `/list_plans?project_id=${projectId}`, fetcher)
+    const { data: plans, mutate } = useSWR(() => `/list_plans?project_id=${projectId}`, fetcher)
 
     const activeProject = project?.find((p: any) => p.id === projectId)
     const environments = activeProject?.environments || ["dev"]
@@ -63,9 +64,12 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
 
     return (
         <div className="p-6 space-y-8">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-[#14161A]">Project Overview</h1>
-                <p className="text-muted-foreground">High-level view of infrastructure drift across all environments.</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-[#14161A]">Project Overview</h1>
+                    <p className="text-muted-foreground">High-level view of infrastructure drift across all environments.</p>
+                </div>
+                <DashboardActionMenu onUploadComplete={() => mutate()} />
             </div>
 
             {/* Summary Cards */}

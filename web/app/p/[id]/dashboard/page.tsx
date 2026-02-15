@@ -6,7 +6,6 @@ import Link from "next/link"
 import useSWR from "swr"
 import { fetcher, listPlans, deletePlan } from "@/lib/api"
 import { ProjectDashboard } from "@/components/project-dashboard"
-import { DashboardActionMenu } from "@/components/dashboard-action-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -52,7 +51,6 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             View Graph
                         </Link>
                     </Button>
-                    <DashboardActionMenu onUploadComplete={() => mutate()} />
                 </div>
             </div>
 
