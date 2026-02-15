@@ -46,7 +46,7 @@ export function ProjectSwitcher() {
                 {projects?.map((project: any) => (
                     <DropdownMenuItem
                         key={project.id}
-                        onSelect={() => router.push(`/p/${project.id}/dashboard`)}
+                        onSelect={() => router.push(`/p/${project.id}/overview`)}
                         className="flex items-center justify-between hover:bg-zinc-800 cursor-pointer text-zinc-300 focus:bg-zinc-800 focus:text-white"
                     >
                         <span className="truncate">{project.name}</span>

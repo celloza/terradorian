@@ -151,8 +151,8 @@ export default function ProjectsPage() {
                             </CardContent>
                             <CardFooter>
                                 <Button asChild className="w-full" variant="secondary">
-                                    <Link href={`/p/${project.id}/dashboard`}>
-                                        View Dashboard <ArrowRight className="ml-2 h-4 w-4" />
+                                    <Link href={`/p/${project.id}/overview`}>
+                                        View Overview <ArrowRight className="ml-2 h-4 w-4" />
                                     </Link>
                                 </Button>
                             </CardFooter>
