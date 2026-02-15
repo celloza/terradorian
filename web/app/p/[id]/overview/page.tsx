@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Activity, CheckCircle2, AlertTriangle, HelpCircle, ArrowRight, Ban } from "lucide-react"
+import { toast } from "sonner"
 import { DashboardActionMenu } from "@/components/dashboard-action-menu"
 import {
     DropdownMenu,
@@ -169,11 +170,27 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                                                     ? currentExcluded.filter((e: string) => e !== env)
                                                     : [...currentExcluded, env]
 
+                                                // Optimistic update
+                                                const updatedComponents = components.map((c: any) => {
+                                                    if (c.id === comp.id) {
+                                                        return { ...c, excluded_environments: newExcluded }
+                                                    }
+                                                    return c
+                                                })
+
                                                 try {
-                                                    await updateComponent(comp.id, projectId, { excluded_environments: newExcluded })
-                                                    mutateComponents() // Refresh components to update UI
+                                                    await mutateComponents(
+                                                        updateComponent(comp.id, projectId, { excluded_environments: newExcluded }).then(() => updatedComponents),
+                                                        {
+                                                            optimisticData: updatedComponents,
+                                                            rollbackOnError: true,
+                                                            revalidate: false
+                                                        }
+                                                    )
+                                                    toast.success(isExcluded ? `Checked ${comp.name} for ${env}` : `Excluded ${comp.name} from ${env}`)
                                                 } catch (error) {
                                                     console.error("Failed to update component exclusion", error)
+                                                    toast.error("Failed to update exclusion")
                                                 }
                                             }
 
