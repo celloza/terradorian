@@ -3,19 +3,25 @@
 import { use } from "react"
 import Link from "next/link"
 import useSWR from "swr"
-import { fetcher, listPlans, listComponents } from "@/lib/api" // Assuming listComponents is available or I need to add it to existing fetcher use
+import { fetcher, listPlans, listComponents, updateComponent } from "@/lib/api" // Assuming listComponents is available or I need to add it to existing fetcher use
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Activity, CheckCircle2, AlertTriangle, HelpCircle, ArrowRight } from "lucide-react"
+import { Activity, CheckCircle2, AlertTriangle, HelpCircle, ArrowRight, Ban } from "lucide-react"
 import { DashboardActionMenu } from "@/components/dashboard-action-menu"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function ProjectOverviewPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: projectId } = use(params)
 
     // Data Fetching
     const { data: project } = useSWR("/list_projects", fetcher)
-    const { data: components } = useSWR(() => `/list_components?project_id=${projectId}`, fetcher)
+    const { data: components, mutate: mutateComponents } = useSWR(() => `/list_components?project_id=${projectId}`, fetcher)
     const { data: plans, mutate } = useSWR(() => `/list_plans?project_id=${projectId}`, fetcher)
 
     const activeProject = project?.find((p: any) => p.id === projectId)
@@ -153,28 +159,67 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                                     <TableRow key={comp.id}>
                                         <TableCell className="font-medium">{comp.name}</TableCell>
                                         {environments.map((env: string) => {
+                                            const isExcluded = (comp.excluded_environments || []).includes(env)
                                             const plan = getLatestPlan(comp.id, env)
-                                            const status = getStatus(plan)
+                                            const status = isExcluded ? "excluded" : getStatus(plan)
+
+                                            const toggleExclusion = async () => {
+                                                const currentExcluded = comp.excluded_environments || []
+                                                const newExcluded = isExcluded
+                                                    ? currentExcluded.filter((e: string) => e !== env)
+                                                    : [...currentExcluded, env]
+
+                                                try {
+                                                    await updateComponent(comp.id, projectId, { excluded_environments: newExcluded })
+                                                    mutateComponents() // Refresh components to update UI
+                                                } catch (error) {
+                                                    console.error("Failed to update component exclusion", error)
+                                                }
+                                            }
 
                                             return (
-                                                <TableCell key={env} className="text-center">
-                                                    <div className="flex justify-center">
-                                                        {status === "aligned" && (
-                                                            <div title="Aligned" className="p-1 rounded-full bg-green-100 dark:bg-green-900/30">
-                                                                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                                <TableCell key={env} className="text-center p-0">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <div className="flex justify-center h-full w-full py-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
+                                                                {status === "aligned" && (
+                                                                    <div title="Aligned" className="p-1 rounded-full bg-green-100 dark:bg-green-900/30">
+                                                                        <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+                                                                    </div>
+                                                                )}
+                                                                {status === "drift" && (
+                                                                    <div title="Drift Detected" className="p-1 rounded-full bg-orange-100 dark:bg-orange-900/30">
+                                                                        <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                                                                    </div>
+                                                                )}
+                                                                {status === "unknown" && (
+                                                                    <div title="No Plan" className="p-1 rounded-full bg-zinc-100 dark:bg-zinc-800">
+                                                                        <HelpCircle className="h-5 w-5 text-zinc-400" />
+                                                                    </div>
+                                                                )}
+                                                                {status === "excluded" && (
+                                                                    <div title="Excluded" className="p-1 rounded-full bg-zinc-100 dark:bg-zinc-800 opacity-50">
+                                                                        <Ban className="h-5 w-5 text-zinc-400" />
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                        )}
-                                                        {status === "drift" && (
-                                                            <div title="Drift Detected" className="p-1 rounded-full bg-orange-100 dark:bg-orange-900/30">
-                                                                <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                                                            </div>
-                                                        )}
-                                                        {status === "unknown" && (
-                                                            <div title="No Plan" className="p-1 rounded-full bg-zinc-100 dark:bg-zinc-800">
-                                                                <HelpCircle className="h-5 w-5 text-zinc-400" />
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent>
+                                                            <DropdownMenuItem onClick={toggleExclusion}>
+                                                                {isExcluded ? (
+                                                                    <>
+                                                                        <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                                                                        Include in {env}
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Ban className="mr-2 h-4 w-4 text-zinc-500" />
+                                                                        Exclude from {env}
+                                                                    </>
+                                                                )}
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </TableCell>
                                             )
                                         })}

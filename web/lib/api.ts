@@ -37,6 +37,16 @@ export const createComponent = async (project_id: string, name: string) => {
     return res.json();
 };
 
+export const updateComponent = async (component_id: string, project_id: string, updates: any) => {
+    const res = await fetch(`${API_BASE}/update_component`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ component_id, project_id, ...updates }),
+    });
+    if (!res.ok) throw new Error("Failed to update component");
+    return res.json();
+};
+
 // Getter returns URL for SWR
 export const listComponents = (project_id: string) => {
     return `/list_components?project_id=${project_id}`;

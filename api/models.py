@@ -22,6 +22,13 @@ class AddEnvironmentSchema(BaseModel):
 class CreateComponentSchema(BaseModel):
     project_id: str
     name: str
+    excluded_environments: list[str] = []
+
+class UpdateComponentSchema(BaseModel):
+    component_id: str
+    project_id: str
+    excluded_environments: list[str] | None = None
+    name: str | None = None
 
 class ManualIngestSchema(BaseModel):
     component_id: str

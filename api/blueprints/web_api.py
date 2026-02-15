@@ -6,7 +6,7 @@ import hashlib
 from datetime import datetime
 from azure.cosmos import exceptions
 from pydantic import ValidationError
-from models import CreateProjectSchema, CreateComponentSchema, UpdateProjectSettingsSchema
+from models import CreateProjectSchema, CreateComponentSchema, UpdateProjectSettingsSchema, UpdateComponentSchema
 from shared.db import get_container
 
 bp = func.Blueprint()
@@ -80,6 +80,8 @@ def create_component(req: func.HttpRequest) -> func.HttpResponse:
     doc_dict['id'] = str(uuid.uuid4())
     doc_dict['created_at'] = datetime.utcnow().isoformat()
     doc_dict['pat_hashes'] = []
+    if not doc_dict.get('excluded_environments'):
+        doc_dict['excluded_environments'] = []
     
     try:
         container = get_container("components", "/id")
@@ -166,7 +168,7 @@ def list_components(req: func.HttpRequest) -> func.HttpResponse:
     try:
         container = get_container("components", "/id")
         items = list(container.query_items(
-            query="SELECT c.id, c.name, c.project_id FROM c WHERE c.project_id = @pid",
+            query="SELECT c.id, c.name, c.project_id, c.excluded_environments FROM c WHERE c.project_id = @pid",
             parameters=[{"name": "@pid", "value": project_id}],
             enable_cross_partition_query=True
         ))
