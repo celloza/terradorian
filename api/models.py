@@ -69,3 +69,4 @@ class UpdateProjectSettingsSchema(BaseModel):
     project_id: str
     notifications: NotificationSettings | None = None
     description: str | None = None
+    environments: list[str] | None = None

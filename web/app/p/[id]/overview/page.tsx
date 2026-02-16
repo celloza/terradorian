@@ -3,11 +3,11 @@
 import { use } from "react"
 import Link from "next/link"
 import useSWR from "swr"
-import { fetcher, listPlans, listComponents, updateComponent } from "@/lib/api" // Assuming listComponents is available or I need to add it to existing fetcher use
+import { fetcher, listPlans, listComponents, updateComponent, updateProjectSettings } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Activity, CheckCircle2, AlertTriangle, HelpCircle, ArrowRight, Ban } from "lucide-react"
+import { Activity, CheckCircle2, AlertTriangle, HelpCircle, ArrowRight, Ban, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 import { DashboardActionMenu } from "@/components/dashboard-action-menu"
 import {
@@ -21,7 +21,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
     const { id: projectId } = use(params)
 
     // Data Fetching
-    const { data: project } = useSWR("/list_projects", fetcher)
+    const { data: project, mutate: mutateProjects } = useSWR("/list_projects", fetcher)
     const { data: components, mutate: mutateComponents } = useSWR(() => `/list_components?project_id=${projectId}`, fetcher)
     const { data: plans, mutate } = useSWR(() => `/list_plans?project_id=${projectId}`, fetcher)
 
@@ -141,8 +141,86 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[200px]">Component</TableHead>
-                                {environments.map((env: string) => (
-                                    <TableHead key={env} className="text-center">{env}</TableHead>
+                                {environments.map((env: string, index: number) => (
+                                    <TableHead key={env} className="text-center">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger className="flex items-center justify-center gap-1 w-full hover:bg-zinc-100 dark:hover:bg-zinc-800 py-1 rounded cursor-pointer outline-none">
+                                                {env}
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                <DropdownMenuItem
+                                                    onClick={() => {
+                                                        const move = async () => {
+                                                            if (!activeProject || !project) return
+                                                            const currentEnvs = [...environments]
+                                                            const newIndex = index - 1
+                                                            if (newIndex < 0) return
+
+                                                            // Swap
+                                                            currentEnvs[index] = currentEnvs[newIndex]
+                                                            currentEnvs[newIndex] = env
+
+                                                            const updatedProject = { ...activeProject, environments: currentEnvs }
+                                                            const updatedProjects = project.map((p: any) => p.id === projectId ? updatedProject : p)
+
+                                                            try {
+                                                                await mutateProjects(
+                                                                    updateProjectSettings(projectId, { environments: currentEnvs }).then(() => updatedProjects),
+                                                                    {
+                                                                        optimisticData: updatedProjects,
+                                                                        rollbackOnError: true,
+                                                                        revalidate: false
+                                                                    }
+                                                                )
+                                                                toast.success("Environment moved left")
+                                                            } catch (e) {
+                                                                toast.error("Failed to reorder")
+                                                            }
+                                                        }
+                                                        move()
+                                                    }}
+                                                    disabled={index === 0}
+                                                >
+                                                    <ArrowLeft className="mr-2 h-4 w-4" /> Move Left
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    onClick={() => {
+                                                        const move = async () => {
+                                                            if (!activeProject || !project) return
+                                                            const currentEnvs = [...environments]
+                                                            const newIndex = index + 1
+                                                            if (newIndex >= currentEnvs.length) return
+
+                                                            // Swap
+                                                            currentEnvs[index] = currentEnvs[newIndex]
+                                                            currentEnvs[newIndex] = env
+
+                                                            const updatedProject = { ...activeProject, environments: currentEnvs }
+                                                            const updatedProjects = project.map((p: any) => p.id === projectId ? updatedProject : p)
+
+                                                            try {
+                                                                await mutateProjects(
+                                                                    updateProjectSettings(projectId, { environments: currentEnvs }).then(() => updatedProjects),
+                                                                    {
+                                                                        optimisticData: updatedProjects,
+                                                                        rollbackOnError: true,
+                                                                        revalidate: false
+                                                                    }
+                                                                )
+                                                                toast.success("Environment moved right")
+                                                            } catch (e) {
+                                                                toast.error("Failed to reorder")
+                                                            }
+                                                        }
+                                                        move()
+                                                    }}
+                                                    disabled={index === environments.length - 1}
+                                                >
+                                                    <ArrowRight className="mr-2 h-4 w-4" /> Move Right
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableHead>
                                 ))}
                             </TableRow>
                         </TableHeader>

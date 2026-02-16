@@ -421,6 +421,9 @@ def update_project_settings(req: func.HttpRequest) -> func.HttpResponse:
         if settings_data.description is not None:
              project_doc['description'] = settings_data.description
              
+        if settings_data.environments is not None:
+             project_doc['environments'] = settings_data.environments
+             
         if settings_data.notifications:
             # We dump the notifications model to dict. 
             # Note: This replaces the entire notifications object. Partial updates would require deeper merging logic.
