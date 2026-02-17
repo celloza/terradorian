@@ -3,6 +3,17 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, Cloud, Plus, Trash2, Edit3, Activity } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+// Deterministic color generator for components
+const stringToColor = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+    return '#' + "00000".substring(0, 6 - c.length) + c;
+}
 
 interface ProjectDashboardProps {
     plans: any[]
@@ -75,8 +86,6 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
     const StatusIcon = isInSync ? CheckCircle : AlertTriangle
     const statusColor = isInSync ? "text-green-500" : "text-amber-500"
     const statusText = isInSync ? "In Sync" : "Drift Detected"
-
-
 
     return (
         <div className="space-y-6">
@@ -170,6 +179,7 @@ function DriftChart({ plans }: { plans: any[] }) {
 
     // 2. Track latest state per component
     const componentState = new Map<string, { create: number, del: number, update: number, unchanged: number, total: number }>();
+    const allComponentIds = new Set<string>();
 
     // 3. Helper to calculate stats for a single plan
     const getPlanStats = (plan: any) => {
@@ -196,17 +206,22 @@ function DriftChart({ plans }: { plans: any[] }) {
         // Update state for this component
         if (plan.component_id) {
             componentState.set(plan.component_id, getPlanStats(plan));
+            allComponentIds.add(plan.component_id);
         }
 
         // Aggregate across all components
         let agg = { create: 0, del: 0, update: 0, unchanged: 0, total: 0 }
+        const componentDrift: Record<string, number> = {};
 
-        componentState.forEach(stats => {
+        componentState.forEach((stats, compId) => {
             agg.create += stats.create
             agg.del += stats.del
             agg.update += stats.update
             agg.unchanged += stats.unchanged
             agg.total += stats.total
+
+            // Store total drift for this component
+            componentDrift[compId] = stats.total;
         })
 
         return {
@@ -216,55 +231,123 @@ function DriftChart({ plans }: { plans: any[] }) {
             delete: agg.del,
             update: agg.update,
             unchanged: agg.unchanged,
-            timestamp: plan.timestamp
+            timestamp: plan.timestamp,
+            ...componentDrift // Spread component drift stats into the data point
         }
     })
 
     return (
-        <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                    <XAxis
-                        dataKey="timestamp"
-                        stroke="#888888"
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) => new Date(value).toLocaleDateString()}
-                    />
-                    <YAxis
-                        stroke="#888888"
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) => `${value}`}
-                    />
-                    <Tooltip
-                        contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", color: "#fff" }}
-                        itemStyle={{ color: "#fff" }}
-                        cursor={{ stroke: "#888888" }}
-                        labelFormatter={(value) => new Date(value).toLocaleString()}
-                    />
+        <div className="w-full">
+            <Tabs defaultValue="resource" className="w-full">
+                <div className="flex justify-end mb-4 mr-6">
+                    <TabsList>
+                        <TabsTrigger value="resource">Per Resource</TabsTrigger>
+                        <TabsTrigger value="component">Per Component</TabsTrigger>
+                    </TabsList>
+                </div>
 
-                    {/* Detailed Lines (Dotted) */}
-                    <Line type="monotone" dataKey="create" stroke="#22c55e" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Create" />
-                    <Line type="monotone" dataKey="delete" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Delete" />
-                    <Line type="monotone" dataKey="update" stroke="#eab308" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Update" />
-                    <Line type="monotone" dataKey="unchanged" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Unchanged" />
+                <div className="h-[300px] w-full">
+                    <TabsContent value="resource" className="h-full mt-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                <XAxis
+                                    dataKey="timestamp"
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                                />
+                                <YAxis
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => `${value}`}
+                                />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", color: "#fff" }}
+                                    itemStyle={{ color: "#fff" }}
+                                    cursor={{ stroke: "#888888" }}
+                                    labelFormatter={(value) => new Date(value).toLocaleString()}
+                                />
 
-                    {/* Total Line (Solid) */}
-                    <Line
-                        type="monotone"
-                        dataKey="total"
-                        stroke="#2563eb"
-                        strokeWidth={3}
-                        dot={{ r: 4, fill: "#2563eb", strokeWidth: 0 }}
-                        activeDot={{ r: 6, fill: "#2563eb" }}
-                        name="Total Drift"
-                    />
-                </LineChart>
-            </ResponsiveContainer>
+                                {/* Resource Lines (Dotted) */}
+                                <Line type="monotone" dataKey="create" stroke="#22c55e" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Create" />
+                                <Line type="monotone" dataKey="delete" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Delete" />
+                                <Line type="monotone" dataKey="update" stroke="#eab308" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Update" />
+                                <Line type="monotone" dataKey="unchanged" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Unchanged" />
+
+                                {/* Total Line (Solid) */}
+                                <Line
+                                    type="monotone"
+                                    dataKey="total"
+                                    stroke="#2563eb"
+                                    strokeWidth={3}
+                                    dot={{ r: 4, fill: "#2563eb", strokeWidth: 0 }}
+                                    activeDot={{ r: 6, fill: "#2563eb" }}
+                                    name="Total Drift"
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </TabsContent>
+
+                    <TabsContent value="component" className="h-full mt-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                <XAxis
+                                    dataKey="timestamp"
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                                />
+                                <YAxis
+                                    stroke="#888888"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => `${value}`}
+                                />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", color: "#fff" }}
+                                    itemStyle={{ color: "#fff" }}
+                                    cursor={{ stroke: "#888888" }}
+                                    labelFormatter={(value) => new Date(value).toLocaleString()}
+                                />
+
+                                {/* Component Lines */}
+                                {Array.from(allComponentIds).map((compId) => (
+                                    <Line
+                                        key={compId}
+                                        type="monotone"
+                                        dataKey={compId}
+                                        stroke={stringToColor(compId)}
+                                        strokeWidth={2}
+                                        dot={false}
+                                        activeDot={{ r: 4 }}
+                                        name={compId}
+                                    />
+                                ))}
+
+                                {/* Total Line (Solid Reference) */}
+                                <Line
+                                    type="monotone"
+                                    dataKey="total"
+                                    stroke="#2563eb"
+                                    strokeWidth={3}
+                                    dot={{ r: 4, fill: "#2563eb", strokeWidth: 0 }}
+                                    activeDot={{ r: 6, fill: "#2563eb" }}
+                                    name="Total Drift"
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </TabsContent>
+                </div>
+            </Tabs>
         </div>
     )
 }
