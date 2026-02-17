@@ -140,3 +140,9 @@ export const updateProjectSettings = async (project_id: string, settings: any) =
     if (!res.ok) throw new Error("Failed to update settings");
     return res.json();
 };
+
+export const getPlan = async (plan_id: string) => {
+    const res = await fetch(`${API_BASE}/get_plan?plan_id=${plan_id}`);
+    if (!res.ok) throw new Error("Failed to fetch plan");
+    return res.json();
+};
