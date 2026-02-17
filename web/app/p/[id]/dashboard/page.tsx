@@ -13,6 +13,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from "sonner"
 import { History, EyeOff, Trash2, Network } from "lucide-react"
 
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { getPlan } from "@/lib/api";
+import { Eye, Loader2 } from "lucide-react";
+
 export default function DashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
     const searchParams = useSearchParams()
@@ -23,6 +28,11 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
 
     const [deleteOpen, setDeleteOpen] = useState(false)
     const [planToDelete, setPlanToDelete] = useState<any>(null)
+
+    const [viewOpen, setViewOpen] = useState(false)
+    const [planToView, setPlanToView] = useState<any>(null)
+    const [viewLoading, setViewLoading] = useState(false)
+    const [fullPlan, setFullPlan] = useState<any>(null)
 
     const handleDelete = async () => {
         if (!planToDelete) return
@@ -35,6 +45,52 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
         } catch (e) {
             toast.error("Failed to delete plan")
         }
+    }
+
+    const handleView = async (plan: any) => {
+        setPlanToView(plan)
+        setViewOpen(true)
+        setViewLoading(true)
+        setFullPlan(null)
+        try {
+            const data = await getPlan(plan.id)
+            setFullPlan(data)
+        } catch (e) {
+            toast.error("Failed to load plan details")
+        } finally {
+            setViewLoading(false)
+        }
+    }
+
+    const getPlanSummary = (planData: any) => {
+        if (!planData || !planData.terraform_plan || !planData.terraform_plan.resource_changes) return null;
+
+        const summary = {
+            added: 0,
+            changed: 0,
+            deleted: 0,
+            replaced: 0,
+            moved: 0,
+            imported: 0
+        };
+
+        planData.terraform_plan.resource_changes.forEach((rc: any) => {
+            const actions = rc.change.actions;
+            if (actions.includes('create') && actions.includes('delete')) {
+                summary.replaced++;
+            } else if (actions.includes('create')) {
+                summary.added++;
+            } else if (actions.includes('delete')) {
+                summary.deleted++;
+            } else if (actions.includes('update')) {
+                summary.changed++;
+            }
+            // Terraform plan JSON actions can be: ["no-op"], ["create"], ["read"], ["update"], ["delete", "create"], ["create", "delete"], ["delete"]
+            // "moved" is usually a separate property or action, effectively update? For basic counts, standard TF actions are create, update, delete.
+            // "imported" is 'import'.
+        });
+
+        return summary;
     }
 
     return (
@@ -108,6 +164,14 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
+                                                    className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-500 hover:bg-blue-50"
+                                                    onClick={() => handleView(plan)}
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
                                                     className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500 hover:bg-red-50"
                                                     onClick={() => {
                                                         setPlanToDelete(plan)
@@ -125,6 +189,73 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                     </Table>
                 </div>
             </div>
+
+            {/* View Plan Dialog */}
+            <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>Terraform Plan Details</DialogTitle>
+                        <DialogDescription>
+                            Viewing plan for <span className="font-semibold text-foreground">{planToView?.component_name}</span> from <span className="font-mono">{planToView ? new Date(planToView.timestamp).toLocaleString() : ''}</span>
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex-1 overflow-auto min-h-0 space-y-4 py-4">
+                        {viewLoading ? (
+                            <div className="flex items-center justify-center h-48">
+                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : fullPlan ? (
+                            <>
+                                {/* Plan Overview Table */}
+                                {(() => {
+                                    const summary = getPlanSummary(fullPlan);
+                                    if (!summary) return null;
+                                    return (
+                                        <div className="border rounded-md">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow className="bg-muted/50">
+                                                        <TableHead className="text-center text-green-600">Added</TableHead>
+                                                        <TableHead className="text-center text-amber-600">Changed</TableHead>
+                                                        <TableHead className="text-center text-red-600">Deleted</TableHead>
+                                                        <TableHead className="text-center text-purple-600">Replaced</TableHead>
+                                                        <TableHead className="text-center text-blue-600">Moved</TableHead>
+                                                        <TableHead className="text-center text-cyan-600">Imported</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    <TableRow>
+                                                        <TableCell className="text-center font-bold text-lg">{summary.added}</TableCell>
+                                                        <TableCell className="text-center font-bold text-lg">{summary.changed}</TableCell>
+                                                        <TableCell className="text-center font-bold text-lg">{summary.deleted}</TableCell>
+                                                        <TableCell className="text-center font-bold text-lg">{summary.replaced}</TableCell>
+                                                        <TableCell className="text-center font-bold text-lg">{summary.moved}</TableCell>
+                                                        <TableCell className="text-center font-bold text-lg">{summary.imported}</TableCell>
+                                                    </TableRow>
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    )
+                                })()}
+
+                                <div className="rounded-md border overflow-hidden">
+                                    <SyntaxHighlighter
+                                        language="json"
+                                        style={vscDarkPlus}
+                                        customStyle={{ margin: 0, height: '100%', maxHeight: '400px' }}
+                                        showLineNumbers={true}
+                                    >
+                                        {JSON.stringify(fullPlan.terraform_plan, null, 2)}
+                                    </SyntaxHighlighter>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="text-center py-8 text-muted-foreground">Failed to load plan content.</div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>

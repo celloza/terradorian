@@ -255,6 +255,26 @@ def list_plans(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         return func.HttpResponse(f"Error: {e}", status_code=500)
 
+@bp.route(route="get_plan", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_plan(req: func.HttpRequest) -> func.HttpResponse:
+    plan_id = req.params.get('plan_id')
+    if not plan_id:
+        return func.HttpResponse("plan_id param required", status_code=400)
+    
+    try:
+        container = get_container("plans", "/id")
+        item = container.read_item(item=plan_id, partition_key=plan_id)
+        
+        return func.HttpResponse(
+            body=json.dumps(item),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Plan not found", status_code=404)
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
 @bp.route(route="list_tokens", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
 def list_tokens(req: func.HttpRequest) -> func.HttpResponse:
     project_id = req.params.get('project_id')
