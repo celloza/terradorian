@@ -34,7 +34,7 @@ export default function ProjectContextLayout({
     }
 
     return (
-        <div className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-900">
+        <div className="h-screen flex flex-col bg-zinc-50 dark:bg-zinc-900 overflow-hidden">
             {/* Top Bar */}
             <TopNavBar>
                 <div className="flex items-center gap-2">
@@ -43,13 +43,13 @@ export default function ProjectContextLayout({
             </TopNavBar>
 
             {/* Main Layout: Sidebar + Content */}
-            <div className="flex flex-1 overflow-hidden">
-                <aside className="shrink-0 z-40">
+            <div className="flex flex-1 overflow-hidden h-full">
+                <aside className="shrink-0 z-40 h-full overflow-y-auto border-r bg-background">
                     <ContextSidebar />
                 </aside>
 
-                <main className="flex-1 overflow-auto bg-[#F6F7F9] dark:bg-[#0F1115] w-full">
-                    <div className="h-full">
+                <main className="flex-1 h-full overflow-y-auto bg-[#F6F7F9] dark:bg-[#0F1115] w-full">
+                    <div className="min-h-full">
                         {children}
                     </div>
                 </main>
