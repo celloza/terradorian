@@ -192,7 +192,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
 
             {/* View Plan Dialog */}
             <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+                <DialogContent className="max-w-[90vw] h-[90vh] overflow-hidden flex flex-col">
                     <DialogHeader>
                         <DialogTitle>Terraform Plan Details</DialogTitle>
                         <DialogDescription>
