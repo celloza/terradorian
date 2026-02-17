@@ -172,7 +172,7 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
                                 return (
                                     <div key={plan.component_id} className="flex items-center justify-between text-sm">
                                         <div className="flex flex-col">
-                                            <span className="font-medium truncate max-w-[120px]" title={plan.component_id}>{plan.component_id}</span>
+                                            <span className="font-medium truncate max-w-[120px]" title={plan.component_id}>{plan.component_name || plan.component_id}</span>
                                             <span className="text-xs text-muted-foreground">{age}</span>
                                         </div>
                                         {isStale ? (
