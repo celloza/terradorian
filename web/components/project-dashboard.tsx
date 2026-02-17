@@ -19,29 +19,49 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
         )
     }
 
-    const latestPlan = plans[0]
-    const resourceChanges = latestPlan.terraform_plan?.resource_changes || []
+    // 1. Group plans by component_id to get the latest state for each
+    const latestComponentPlans = new Map<string, any>();
 
-    // Calculate Stats
+    // Plans are typically sorted by API, but let's ensure we process chronologically or just pick latest
+    // The 'plans' prop is usually sorted newest first from the API.
+    // We want the *latest* plan for each component.
+    for (const plan of plans) {
+        if (!plan.component_id) continue;
+        if (!latestComponentPlans.has(plan.component_id)) {
+            latestComponentPlans.set(plan.component_id, plan);
+        }
+    }
+
+    // 2. Calculate Aggregate Stats
     let createCount = 0
     let deleteCount = 0
     let updateCount = 0
     let noOpCount = 0
+    let cloudPlatform = "Unknown Cloud" // We'll just take the first one found or "Mixed"
 
-    resourceChanges.forEach((rc: any) => {
-        const actions = rc.change.actions
-        if (actions.includes("create") && actions.includes("delete")) {
-            createCount++
-            deleteCount++
-        } else if (actions.includes("create")) {
-            createCount++
-        } else if (actions.includes("delete")) {
-            deleteCount++
-        } else if (actions.includes("update")) {
-            updateCount++
-        } else if (actions.includes("read") || actions.includes("no-op")) {
-            noOpCount++
+    latestComponentPlans.forEach((plan) => {
+        if (latestComponentPlans.size === 1) {
+            cloudPlatform = plan.cloud_platform || "Unknown Cloud"
+        } else if (latestComponentPlans.size > 1) {
+            cloudPlatform = "Multiple Providers"
         }
+
+        const resourceChanges = plan.terraform_plan?.resource_changes || []
+        resourceChanges.forEach((rc: any) => {
+            const actions = rc.change.actions
+            if (actions.includes("create") && actions.includes("delete")) {
+                createCount++
+                deleteCount++
+            } else if (actions.includes("create")) {
+                createCount++
+            } else if (actions.includes("delete")) {
+                deleteCount++
+            } else if (actions.includes("update")) {
+                updateCount++
+            } else if (actions.includes("read") || actions.includes("no-op")) {
+                noOpCount++
+            }
+        })
     })
 
     const totalChanges = createCount + deleteCount + updateCount
@@ -56,8 +76,7 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
     const statusColor = isInSync ? "text-green-500" : "text-amber-500"
     const statusText = isInSync ? "In Sync" : "Drift Detected"
 
-    // Extract Cloud Platform
-    const cloudPlatform = latestPlan.cloud_platform || "Unknown Cloud"
+
 
     return (
         <div className="space-y-6">
