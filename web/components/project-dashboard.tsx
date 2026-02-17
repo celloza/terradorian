@@ -146,37 +146,58 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
 }
 
 function DriftChart({ plans }: { plans: any[] }) {
-    // Process plans for chart data (reverse to show chronological order)
-    const data = [...plans].reverse().map(plan => {
+    // 1. Sort plans chronologically (oldest to newest)
+    const sortedPlans = [...plans].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    // 2. Track latest state per component
+    const componentState = new Map<string, { create: number, del: number, update: number, unchanged: number, total: number }>();
+
+    // 3. Helper to calculate stats for a single plan
+    const getPlanStats = (plan: any) => {
         const changes = plan.terraform_plan?.resource_changes || []
-        let total = 0
-        let create = 0
-        let del = 0
-        let update = 0
-        let unchanged = 0
+        let stats = { create: 0, del: 0, update: 0, unchanged: 0, total: 0 }
 
         changes.forEach((rc: any) => {
             const actions = rc.change.actions
-            // Simple counting logic
-            if (actions.length === 1 && actions[0] === "create") create++
-            else if (actions.length === 1 && actions[0] === "delete") del++
-            else if (actions.length === 1 && actions[0] === "update") update++
-            else if (actions.includes("create") && actions.includes("delete")) { create++; del++; } // replace
-            else if (actions.includes("no-op") || actions.includes("read")) unchanged++
+            if (actions.includes("create") && actions.includes("delete")) { stats.create++; stats.del++; }
+            else if (actions.includes("create")) stats.create++
+            else if (actions.includes("delete")) stats.del++
+            else if (actions.includes("update")) stats.update++
+            else if (actions.includes("no-op") || actions.includes("read")) stats.unchanged++
 
-            // Total is sum of mutations needed
             if (actions.includes("create") || actions.includes("delete") || actions.includes("update")) {
-                total++
+                stats.total++
             }
         })
+        return stats;
+    }
+
+    // 4. Generate data points
+    const data = sortedPlans.map(plan => {
+        // Update state for this component
+        if (plan.component_id) {
+            componentState.set(plan.component_id, getPlanStats(plan));
+        }
+
+        // Aggregate across all components
+        let agg = { create: 0, del: 0, update: 0, unchanged: 0, total: 0 }
+
+        componentState.forEach(stats => {
+            agg.create += stats.create
+            agg.del += stats.del
+            agg.update += stats.update
+            agg.unchanged += stats.unchanged
+            agg.total += stats.total
+        })
+
         return {
             date: new Date(plan.timestamp).toLocaleDateString(),
-            total,
-            create,
-            delete: del,
-            update,
-            unchanged,
-            timestamp: plan.timestamp // for sorting if needed
+            total: agg.total,
+            create: agg.create,
+            delete: agg.del,
+            update: agg.update,
+            unchanged: agg.unchanged,
+            timestamp: plan.timestamp
         }
     })
 
