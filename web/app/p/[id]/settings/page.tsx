@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, AlertTriangle, X, Bell, Mail, Slack } from "lucide-react"
+import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2 } from "lucide-react"
 import { toast } from "sonner"
 
 export default function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -38,11 +38,47 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
         }
     })
 
+    // Environment Config State
+    const [envConfig, setEnvConfig] = useState<Record<string, { group: string, region: string }>>({})
+
     // Load initial state from project
     const [loaded, setLoaded] = useState(false)
-    if (project && project.notifications && !loaded) {
-        setNotifState(project.notifications)
+    if (project && !loaded) {
+        if (project.notifications) setNotifState(project.notifications)
+        if (project.environments_config) setEnvConfig(project.environments_config)
         setLoaded(true)
+    }
+
+    const handleSaveEnvConfig = async () => {
+        setSettingsLoading(true)
+        try {
+            await updateProjectSettings(id, { environments_config: envConfig })
+            toast.success("Environment grouping saved")
+        } catch (e) {
+            toast.error("Failed to save settings")
+        } finally {
+            setSettingsLoading(false)
+        }
+    }
+
+    const autoDiscoverGroups = () => {
+        const newConfig = { ...envConfig }
+        project?.environments?.forEach((env: string) => {
+            if (newConfig[env]) return // Skip if already set
+
+            // Heuristic: environment-region-instance
+            const parts = env.split('-')
+            if (parts.length >= 2) {
+                newConfig[env] = {
+                    group: parts[0], // e.g., 'production'
+                    region: parts[1] // e.g., 'uks'
+                }
+            } else {
+                newConfig[env] = { group: "default", region: "global" }
+            }
+        })
+        setEnvConfig(newConfig)
+        toast.success("Auto-discovered groups based on naming convention")
     }
 
     const handleSaveNotifications = async () => {
@@ -299,6 +335,57 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                             {env === 'dev' && <span className="text-xs text-muted-foreground italic px-3">Default</span>}
                         </div>
                     ))}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center"><Layers className="mr-2 h-5 w-5" /> Environment Grouping</CardTitle>
+                    <CardDescription>
+                        Group environments to enable the hierarchical overview map.
+                        Use "Auto-Discover" to guess based on 'env-region-instance' naming.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="flex justify-end">
+                        <Button variant="outline" size="sm" onClick={autoDiscoverGroups}>
+                            <Wand2 className="mr-2 h-4 w-4" /> Auto-Discover
+                        </Button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {project?.environments?.map((env: string) => (
+                            <div key={env} className="grid grid-cols-12 gap-4 items-center p-3 border rounded-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+                                <div className="col-span-4 font-mono text-sm font-medium truncate" title={env}>{env}</div>
+                                <div className="col-span-4">
+                                    <Input
+                                        placeholder="Group (e.g. Production)"
+                                        className="h-8 text-xs"
+                                        value={envConfig[env]?.group || ""}
+                                        onChange={(e) => setEnvConfig(prev => ({
+                                            ...prev,
+                                            [env]: { ...prev[env], group: e.target.value, region: prev[env]?.region || "" }
+                                        }))}
+                                    />
+                                </div>
+                                <div className="col-span-4">
+                                    <Input
+                                        placeholder="Region (e.g. UK South)"
+                                        className="h-8 text-xs"
+                                        value={envConfig[env]?.region || ""}
+                                        onChange={(e) => setEnvConfig(prev => ({
+                                            ...prev,
+                                            [env]: { ...prev[env], region: e.target.value, group: prev[env]?.group || "" }
+                                        }))}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <Button onClick={handleSaveEnvConfig} disabled={settingsLoading}>
+                        {settingsLoading ? "Saving..." : "Save Grouping"}
+                    </Button>
                 </CardContent>
             </Card>
 
