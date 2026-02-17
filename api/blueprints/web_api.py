@@ -147,7 +147,7 @@ def list_projects(req: func.HttpRequest) -> func.HttpResponse:
     try:
         container = get_container("projects", "/id")
         items = list(container.query_items(
-            query="SELECT c.id, c.name, c.description, c.created_at, c.environments, c.notifications FROM c",
+            query="SELECT c.id, c.name, c.description, c.created_at, c.environments, c.notifications, c.environments_config FROM c",
             enable_cross_partition_query=True
         ))
         
@@ -449,6 +449,9 @@ def update_project_settings(req: func.HttpRequest) -> func.HttpResponse:
             # Note: This replaces the entire notifications object. Partial updates would require deeper merging logic.
             # For settings pages, usually we save the whole state, so replacement is fine.
             project_doc['notifications'] = settings_data.notifications.model_dump()
+
+        if settings_data.environments_config is not None:
+             project_doc['environments_config'] = settings_data.environments_config
 
         container.upsert_item(project_doc)
         
