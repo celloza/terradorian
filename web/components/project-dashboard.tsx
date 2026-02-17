@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, Cloud, Plus, Trash2, Edit3, Activity } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { getRelativeTime } from "@/lib/utils"
 
 // Deterministic color generator for components
 const stringToColor = (str: string) => {
@@ -89,68 +90,106 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
 
     return (
         <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card className="col-span-2 border-l-4 border-l-primary">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Infrastructure Status</CardTitle>
-                        <StatusIcon className={`h-4 w-4 ${statusColor}`} />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-baseline gap-2">
-                            <div className="text-2xl font-bold">{syncPercentage}%</div>
-                            <div className="text-sm text-muted-foreground">Synced</div>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {statusText} on {cloudPlatform}
-                        </p>
-                    </CardContent>
-                </Card>
+            {/* Top Stats and Freshness Grid */}
+            <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-5">
+                {/* Left Column: Stats Cards (Span 4 columns on large screens) */}
+                <div className="md:col-span-4 lg:col-span-4 space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <Card className="col-span-2 border-l-4 border-l-primary">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Infrastructure Status</CardTitle>
+                                <StatusIcon className={`h-4 w-4 ${statusColor}`} />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex items-baseline gap-2">
+                                    <div className="text-2xl font-bold">{syncPercentage}%</div>
+                                    <div className="text-sm text-muted-foreground">Synced</div>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    {statusText} on {cloudPlatform}
+                                </p>
+                            </CardContent>
+                        </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">To Create</CardTitle>
-                        <Plus className="h-4 w-4 text-green-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{createCount}</div>
-                        <p className="text-xs text-muted-foreground">New resources</p>
-                    </CardContent>
-                </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">To Create</CardTitle>
+                                <Plus className="h-4 w-4 text-green-500" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{createCount}</div>
+                                <p className="text-xs text-muted-foreground">New resources</p>
+                            </CardContent>
+                        </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">To Delete</CardTitle>
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{deleteCount}</div>
-                        <p className="text-xs text-muted-foreground">Resources removed</p>
-                    </CardContent>
-                </Card>
-            </div>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">To Delete</CardTitle>
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{deleteCount}</div>
+                                <p className="text-xs text-muted-foreground">Resources removed</p>
+                            </CardContent>
+                        </Card>
+                    </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">To Update</CardTitle>
-                        <Edit3 className="h-4 w-4 text-yellow-500" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{updateCount}</div>
-                        <p className="text-xs text-muted-foreground">Modifications</p>
-                    </CardContent>
-                </Card>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">To Update</CardTitle>
+                                <Edit3 className="h-4 w-4 text-yellow-500" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{updateCount}</div>
+                                <p className="text-xs text-muted-foreground">Modifications</p>
+                            </CardContent>
+                        </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Unchanged</CardTitle>
-                        <CheckCircle className="h-4 w-4 text-gray-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{noOpCount}</div>
-                        <p className="text-xs text-muted-foreground">Resources in sync</p>
-                    </CardContent>
-                </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">Unchanged</CardTitle>
+                                <CheckCircle className="h-4 w-4 text-gray-400" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{noOpCount}</div>
+                                <p className="text-xs text-muted-foreground">Resources in sync</p>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+
+                {/* Right Column: Component Freshness (Span 1 column) */}
+                <div className="md:col-span-4 lg:col-span-1">
+                    <Card className="h-full">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">Component Age</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {Array.from(latestComponentPlans.values()).map((plan: any) => {
+                                const age = getRelativeTime(plan.timestamp);
+                                const isStale = new Date(plan.timestamp).getTime() < new Date().getTime() - (7 * 24 * 60 * 60 * 1000);
+                                return (
+                                    <div key={plan.component_id} className="flex items-center justify-between text-sm">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium truncate max-w-[120px]" title={plan.component_id}>{plan.component_id}</span>
+                                            <span className="text-xs text-muted-foreground">{age}</span>
+                                        </div>
+                                        {isStale ? (
+                                            <div className="flex items-center text-amber-500" title="Stale (> 7 days)">
+                                                <AlertTriangle className="h-4 w-4" />
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center text-green-500" title="Fresh">
+                                                <CheckCircle className="h-4 w-4" />
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
 
             <Card className="col-span-4">
