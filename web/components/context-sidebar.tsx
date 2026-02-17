@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useParams, useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { fetcher } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, groupEnvironments } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { LayoutDashboard, Compass, Settings, Activity } from "lucide-react"
 import packageJson from "../package.json"
@@ -47,34 +47,49 @@ export function ContextSidebar() {
 
 
 
-                    {/* Environments Header */}
-                    <div className="pt-4 pb-2 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                        Environments
-                    </div>
 
-                    {/* Environment Links - Flattened */}
-                    {environments.map((env: string) => {
-                        // Check if active: either dashboard or graph for this env
-                        const currentEnvParam = searchParams.get("env") || "dev"
-                        const isEnvActive = (pathname.includes("/dashboard") || pathname.includes("/graph")) && currentEnvParam === env
+                    {/* Environment Groups */}
+                    {Object.entries(groupEnvironments(environments, project?.environments_config)).map(([group, regions]) => (
+                        <div key={group} className="mb-2">
+                            <div className="pt-4 pb-2 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                                {group}
+                            </div>
 
-                        return (
-                            <Button
-                                key={env}
-                                variant="ghost"
-                                asChild
-                                className={cn(
-                                    "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
-                                    isEnvActive && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
-                                )}
-                            >
-                                <Link href={`/p/${projectId}/dashboard?env=${env}`}>
-                                    <LayoutDashboard className="mr-3 h-4 w-4" />
-                                    {env.charAt(0).toUpperCase() + env.slice(1)}
-                                </Link>
-                            </Button>
-                        )
-                    })}
+                            {Object.entries(regions).map(([region, envs]) => (
+                                <div key={region} className="mb-1">
+                                    {/* Region Header - Optional: only show if relevant or just indent? 
+                                        Let's show it for clarity, matching map view. */}
+                                    <div className="px-4 py-1 text-[10px] text-zinc-600 font-medium uppercase tracking-wider pl-4 flex items-center gap-2">
+                                        <div className="h-px bg-zinc-800 flex-1"></div>
+                                        {region}
+                                        <div className="h-px bg-zinc-800 flex-1"></div>
+                                    </div>
+
+                                    {envs.map((env: string) => {
+                                        const currentEnvParam = searchParams.get("env") || "dev"
+                                        const isEnvActive = (pathname.includes("/dashboard") || pathname.includes("/graph")) && currentEnvParam === env
+
+                                        return (
+                                            <Button
+                                                key={env}
+                                                variant="ghost"
+                                                asChild
+                                                className={cn(
+                                                    "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800 pl-6 h-8 text-sm", // concise
+                                                    isEnvActive && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
+                                                )}
+                                            >
+                                                <Link href={`/p/${projectId}/dashboard?env=${env}`}>
+                                                    <LayoutDashboard className="mr-3 h-3.5 w-3.5" />
+                                                    {env}
+                                                </Link>
+                                            </Button>
+                                        )
+                                    })}
+                                </div>
+                            ))}
+                        </div>
+                    ))}
 
                     <div className="pt-4 pb-2 px-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                         Tools
