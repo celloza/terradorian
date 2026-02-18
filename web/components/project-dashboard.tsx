@@ -4,7 +4,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { CheckCircle, AlertTriangle, Cloud, Plus, Trash2, Edit3, Activity } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import { getRelativeTime } from "@/lib/utils"
+
+import { useState } from "react"
 
 // Deterministic color generator for components
 const stringToColor = (str: string) => {
@@ -21,6 +25,8 @@ interface ProjectDashboardProps {
 }
 
 export function ProjectDashboard({ plans }: ProjectDashboardProps) {
+    const [showUnchanged, setShowUnchanged] = useState(false)
+
     if (!plans || plans.length === 0) {
         return (
             <div className="p-8 text-center border rounded-md bg-muted/20">
@@ -195,7 +201,22 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
             <Tabs defaultValue="resource" className="col-span-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle>Drift Over Time</CardTitle>
+                        <div className="flex items-center gap-4">
+                            <CardTitle>Drift Over Time</CardTitle>
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    id="show-unchanged"
+                                    checked={showUnchanged}
+                                    onCheckedChange={(checked) => setShowUnchanged(checked as boolean)}
+                                />
+                                <Label
+                                    htmlFor="show-unchanged"
+                                    className="text-xs text-muted-foreground cursor-pointer"
+                                >
+                                    Show Unchanged
+                                </Label>
+                            </div>
+                        </div>
                         <TabsList>
                             <TabsTrigger value="resource">Per Resource</TabsTrigger>
                             <TabsTrigger value="component">Per Component</TabsTrigger>
@@ -204,7 +225,7 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
                     <CardContent className="pl-2 pt-4">
                         {plans.length > 1 ? (
                             <div className="h-[300px] w-full">
-                                <DriftChart plans={plans} />
+                                <DriftChart plans={plans} showUnchanged={showUnchanged} />
                             </div>
                         ) : (
                             <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground bg-muted/10 rounded-md border border-dashed">
@@ -220,7 +241,7 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
     )
 }
 
-function DriftChart({ plans }: { plans: any[] }) {
+function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchanged: boolean }) {
     // 1. Sort plans chronologically (oldest to newest)
     const sortedPlans = [...plans].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
@@ -319,7 +340,10 @@ function DriftChart({ plans }: { plans: any[] }) {
                         <Line type="monotone" dataKey="create" stroke="#22c55e" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Create" />
                         <Line type="monotone" dataKey="delete" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Delete" />
                         <Line type="monotone" dataKey="update" stroke="#eab308" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Update" />
-                        <Line type="monotone" dataKey="unchanged" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Unchanged" />
+                        <Line type="monotone" dataKey="update" stroke="#eab308" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Update" />
+                        {!showUnchanged ? null : (
+                            <Line type="monotone" dataKey="unchanged" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Unchanged" />
+                        )}
 
                         {/* Total Line (Solid) */}
                         <Line
