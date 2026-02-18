@@ -14,7 +14,9 @@ import {
     HelpCircle,
     FileJson,
     X,
-    Search
+    Search,
+    ChevronDown,
+    ChevronRight,
 } from "lucide-react"
 
 interface PlanViewerProps {
@@ -23,6 +25,16 @@ interface PlanViewerProps {
 
 export function PlanViewer({ plan }: PlanViewerProps) {
     const [selectedResource, setSelectedResource] = useState<any>(null)
+    const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+        unchanged: true
+    })
+
+    const toggleSection = (section: string) => {
+        setCollapsedSections(prev => ({
+            ...prev,
+            [section]: !prev[section]
+        }))
+    }
 
     if (!plan || !plan.terraform_plan || !plan.terraform_plan.resource_changes) {
         return (
@@ -40,7 +52,7 @@ export function PlanViewer({ plan }: PlanViewerProps) {
         update: [],
         delete: [],
         replace: [], // create + delete
-        other: []
+        unchanged: []
     }
 
     changes.forEach((rc: any) => {
@@ -54,7 +66,7 @@ export function PlanViewer({ plan }: PlanViewerProps) {
         } else if (actions.includes("update")) {
             groupedChanges.update.push(rc)
         } else {
-            groupedChanges.other.push(rc) // no-op, read, etc.
+            groupedChanges.unchanged.push(rc) // no-op, read, etc.
         }
     })
 
@@ -79,7 +91,7 @@ export function PlanViewer({ plan }: PlanViewerProps) {
     }
 
     // Sort keys to render in specific order
-    const orderedKeys = ["create", "update", "delete", "replace", "other"]
+    const orderedKeys = ["create", "update", "delete", "replace", "unchanged"]
 
     return (
         <div className="flex h-full overflow-hidden border rounded-md">
@@ -93,35 +105,43 @@ export function PlanViewer({ plan }: PlanViewerProps) {
                     {orderedKeys.map(key => {
                         const items = groupedChanges[key]
                         if (items.length === 0) return null
+                        const isCollapsed = collapsedSections[key]
 
                         return (
                             <div key={key} className="space-y-1">
-                                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                                <button
+                                    onClick={() => toggleSection(key)}
+                                    className="flex items-center w-full text-xs font-semibold uppercase tracking-wider text-muted-foreground px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition-colors"
+                                >
+                                    {isCollapsed ? <ChevronRight className="h-3 w-3 mr-1" /> : <ChevronDown className="h-3 w-3 mr-1" />}
                                     {key} ({items.length})
-                                </h4>
-                                <div className="space-y-1">
-                                    {items.map((item: any, idx: number) => {
-                                        const isSelected = selectedResource === item
-                                        return (
-                                            <div
-                                                key={idx}
-                                                onClick={() => setSelectedResource(item)}
-                                                className={cn(
-                                                    "text-sm p-2 rounded cursor-pointer border hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2",
-                                                    isSelected ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800" : "bg-white border-transparent dark:bg-zinc-950"
-                                                )}
-                                            >
-                                                <Badge variant="outline" className={cn("px-1 py-0 h-5 font-normal shrink-0", getActionColor(key))}>
-                                                    {getActionIcon(key)}
-                                                </Badge>
-                                                <div className="flex flex-col truncate">
-                                                    <span className="font-medium truncate" title={item.name}>{item.name}</span>
-                                                    <span className="text-xs text-muted-foreground truncate" title={item.type}>{item.type}</span>
+                                </button>
+
+                                {!isCollapsed && (
+                                    <div className="space-y-1 pl-2">
+                                        {items.map((item: any, idx: number) => {
+                                            const isSelected = selectedResource === item
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    onClick={() => setSelectedResource(item)}
+                                                    className={cn(
+                                                        "text-sm p-2 rounded cursor-pointer border hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2",
+                                                        isSelected ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800" : "bg-white border-transparent dark:bg-zinc-950"
+                                                    )}
+                                                >
+                                                    <Badge variant="outline" className={cn("px-1 py-0 h-5 font-normal shrink-0", getActionColor(key))}>
+                                                        {getActionIcon(key)}
+                                                    </Badge>
+                                                    <div className="flex flex-col truncate">
+                                                        <span className="font-medium truncate" title={item.name}>{item.name}</span>
+                                                        <span className="text-xs text-muted-foreground truncate" title={item.type}>{item.type}</span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         )
                     })}
