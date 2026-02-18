@@ -11,12 +11,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { History, EyeOff, Trash2, Network } from "lucide-react"
-
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Trash2, Network, History, EyeOff, Eye, Loader2 } from "lucide-react";
+import { PlanViewer } from "@/components/plan-viewer";
 import { getPlan } from "@/lib/api";
-import { Eye, Loader2 } from "lucide-react";
 
 export default function DashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -200,56 +197,13 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-auto min-h-0 space-y-4 py-4">
+                    <div className="flex-1 overflow-hidden min-h-0 py-4">
                         {viewLoading ? (
-                            <div className="flex items-center justify-center h-48">
+                            <div className="flex items-center justify-center h-full">
                                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                             </div>
                         ) : fullPlan ? (
-                            <>
-                                {/* Plan Overview Table */}
-                                {(() => {
-                                    const summary = getPlanSummary(fullPlan);
-                                    if (!summary) return null;
-                                    return (
-                                        <div className="border rounded-md">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow className="bg-muted/50">
-                                                        <TableHead className="text-center text-green-600">Added</TableHead>
-                                                        <TableHead className="text-center text-amber-600">Changed</TableHead>
-                                                        <TableHead className="text-center text-red-600">Deleted</TableHead>
-                                                        <TableHead className="text-center text-purple-600">Replaced</TableHead>
-                                                        <TableHead className="text-center text-blue-600">Moved</TableHead>
-                                                        <TableHead className="text-center text-cyan-600">Imported</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    <TableRow>
-                                                        <TableCell className="text-center font-bold text-lg">{summary.added}</TableCell>
-                                                        <TableCell className="text-center font-bold text-lg">{summary.changed}</TableCell>
-                                                        <TableCell className="text-center font-bold text-lg">{summary.deleted}</TableCell>
-                                                        <TableCell className="text-center font-bold text-lg">{summary.replaced}</TableCell>
-                                                        <TableCell className="text-center font-bold text-lg">{summary.moved}</TableCell>
-                                                        <TableCell className="text-center font-bold text-lg">{summary.imported}</TableCell>
-                                                    </TableRow>
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    )
-                                })()}
-
-                                <div className="rounded-md border overflow-hidden">
-                                    <SyntaxHighlighter
-                                        language="json"
-                                        style={vscDarkPlus}
-                                        customStyle={{ margin: 0, height: '100%', maxHeight: '400px' }}
-                                        showLineNumbers={true}
-                                    >
-                                        {JSON.stringify(fullPlan.terraform_plan, null, 2)}
-                                    </SyntaxHighlighter>
-                                </div>
-                            </>
+                            <PlanViewer plan={fullPlan} />
                         ) : (
                             <div className="text-center py-8 text-muted-foreground">Failed to load plan content.</div>
                         )}
