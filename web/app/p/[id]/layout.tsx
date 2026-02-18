@@ -44,7 +44,7 @@ export default function ProjectContextLayout({
 
             {/* Main Layout: Sidebar + Content */}
             <div className="flex flex-1 overflow-hidden h-full">
-                <aside className="shrink-0 z-40 h-full overflow-y-auto border-r bg-background">
+                <aside className="shrink-0 z-40 h-full overflow-y-auto overflow-x-hidden border-r bg-background">
                     <ContextSidebar />
                 </aside>
 
