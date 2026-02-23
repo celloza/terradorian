@@ -1,7 +1,7 @@
 "use client"
 
-import { use, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { use, useState, useEffect } from "react"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import useSWR from "swr"
 import { fetcher, listPlans, deletePlan } from "@/lib/api"
@@ -9,6 +9,7 @@ import { ProjectDashboard } from "@/components/project-dashboard"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { Trash2, Network, History, EyeOff, Eye, Loader2 } from "lucide-react";
@@ -18,10 +19,33 @@ import { getPlan } from "@/lib/api";
 export default function DashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
     const searchParams = useSearchParams()
+    const router = useRouter()
+    const pathname = usePathname()
+
     const env = searchParams.get("env") || "dev"
     const projectId = id // Alias for clarity if needed, or just use id
 
-    const { data: plans, mutate } = useSWR(listPlans(id, undefined, env), fetcher)
+    // Fetch projects to get default branch
+    const { data: projects } = useSWR("/list_projects", fetcher)
+    const project = projects?.find((p: any) => p.id === id)
+
+    const branchQuery = searchParams.get("branch")
+    const branch = branchQuery || project?.default_branch || "develop"
+
+    const { data: plans, mutate } = useSWR(listPlans(id, undefined, env, branch), fetcher)
+
+    const [branchInput, setBranchInput] = useState(branch)
+
+    useEffect(() => {
+        setBranchInput(branch)
+    }, [branch])
+
+    const handleBranchFilter = (newBranch: string) => {
+        if (!newBranch) return; // Must have some branch
+        const newParams = new URLSearchParams(searchParams.toString())
+        newParams.set("branch", newBranch)
+        router.push(`${pathname}?${newParams.toString()}`)
+    }
 
     const [deleteOpen, setDeleteOpen] = useState(false)
     const [planToDelete, setPlanToDelete] = useState<any>(null)
@@ -98,6 +122,14 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                     <p className="text-muted-foreground">Detailed drift analysis for this environment.</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Input
+                        placeholder="Filter by branch..."
+                        value={branchInput}
+                        onChange={(e) => setBranchInput(e.target.value)}
+                        onBlur={() => handleBranchFilter(branchInput)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleBranchFilter(branchInput)}
+                        className="w-48 bg-white h-9"
+                    />
                     <Button variant="outline" asChild>
                         <Link href={`/p/${id}/graph?env=${env}`}>
                             <Network className="mr-2 h-4 w-4" />
@@ -120,6 +152,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             <TableRow className="bg-zinc-50">
                                 <TableHead>Timestamp</TableHead>
                                 <TableHead>Component</TableHead>
+                                <TableHead>Branch</TableHead>
                                 <TableHead>TF Version</TableHead>
                                 <TableHead>Providers</TableHead>
                                 <TableHead>Status</TableHead>
@@ -144,6 +177,9 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                     <TableRow key={plan.id}>
                                         <TableCell className="font-medium text-zinc-900">{new Date(plan.timestamp).toLocaleString()}</TableCell>
                                         <TableCell>{plan.component_name || "Unknown"}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary" className="font-mono text-xs">{plan.branch || "develop"}</Badge>
+                                        </TableCell>
                                         <TableCell>
                                             <span className="font-mono text-xs bg-zinc-100 px-2 py-1 rounded">{plan.terraform_version || "N/A"}</span>
                                         </TableCell>

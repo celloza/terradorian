@@ -24,6 +24,8 @@ def create_project(req: func.HttpRequest) -> func.HttpResponse:
     doc_dict['created_at'] = datetime.utcnow().isoformat()
     if not doc_dict.get('environments'):
         doc_dict['environments'] = ["dev"]
+    if not doc_dict.get('default_branch'):
+        doc_dict['default_branch'] = "develop"
     
     try:
         container = get_container("projects", "/id")
@@ -147,7 +149,7 @@ def list_projects(req: func.HttpRequest) -> func.HttpResponse:
     try:
         container = get_container("projects", "/id")
         items = list(container.query_items(
-            query="SELECT c.id, c.name, c.description, c.created_at, c.environments, c.notifications, c.environments_config FROM c",
+            query="SELECT c.id, c.name, c.description, c.created_at, c.environments, c.notifications, c.environments_config, c.default_branch FROM c",
             enable_cross_partition_query=True
         ))
         
@@ -216,11 +218,12 @@ def list_plans(req: func.HttpRequest) -> func.HttpResponse:
     project_id = req.params.get('project_id')
     component_id = req.params.get('component_id')
     environment = req.params.get('environment')
+    branch = req.params.get('branch')
     
     try:
         container = get_container("plans", "/id")
         
-        query = "SELECT c.id, c.project_id, c.component_name, c.component_id, c.environment, c.timestamp, c.terraform_version, c.providers, c.cloud_platform, c.dependencies, c.resource_graph, {'resource_changes': c.terraform_plan.resource_changes} AS terraform_plan FROM c"
+        query = "SELECT c.id, c.project_id, c.component_name, c.component_id, c.environment, c.branch, c.timestamp, c.terraform_version, c.providers, c.cloud_platform, c.dependencies, c.resource_graph, {'resource_changes': c.terraform_plan.resource_changes} AS terraform_plan FROM c"
         where_clauses = []
         parameters = []
         
@@ -235,6 +238,10 @@ def list_plans(req: func.HttpRequest) -> func.HttpResponse:
         if component_id:
             where_clauses.append("c.component_id = @cid")
             parameters.append({"name": "@cid", "value": component_id})
+            
+        if branch:
+            where_clauses.append("c.branch = @branch")
+            parameters.append({"name": "@branch", "value": branch})
             
         if where_clauses:
             query += " WHERE " + " AND ".join(where_clauses)
@@ -452,6 +459,9 @@ def update_project_settings(req: func.HttpRequest) -> func.HttpResponse:
 
         if settings_data.environments_config is not None:
              project_doc['environments_config'] = settings_data.environments_config
+
+        if settings_data.default_branch is not None:
+             project_doc['default_branch'] = settings_data.default_branch
 
         container.upsert_item(project_doc)
         

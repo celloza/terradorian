@@ -1,12 +1,14 @@
 "use client"
 
-import { use } from "react"
+import { use, useState, useEffect } from "react"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import useSWR from "swr"
 import { fetcher, listPlans, listComponents, updateComponent, updateProjectSettings } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { Activity, CheckCircle2, AlertTriangle, HelpCircle, ArrowRight, Ban, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 import { DashboardActionMenu } from "@/components/dashboard-action-menu"
@@ -25,14 +27,33 @@ import { groupEnvironments } from "@/lib/utils"
 
 export default function ProjectOverviewPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: projectId } = use(params)
+    const searchParams = useSearchParams()
+    const router = useRouter()
+    const pathname = usePathname()
 
     // Data Fetching
     const { data: project, mutate: mutateProjects } = useSWR("/list_projects", fetcher)
-    const { data: components, mutate: mutateComponents } = useSWR(() => `/list_components?project_id=${projectId}`, fetcher)
-    const { data: plans, mutate } = useSWR(() => `/list_plans?project_id=${projectId}`, fetcher)
-
     const activeProject = project?.find((p: any) => p.id === projectId)
     const environments = activeProject?.environments || ["dev"]
+
+    const branchQuery = searchParams.get("branch")
+    const branch = branchQuery || activeProject?.default_branch || "develop"
+
+    const { data: components, mutate: mutateComponents } = useSWR(() => `/list_components?project_id=${projectId}`, fetcher)
+    const { data: plans, mutate } = useSWR(() => `/list_plans?project_id=${projectId}&branch=${branch}`, fetcher)
+
+    const [branchInput, setBranchInput] = useState(branch)
+
+    useEffect(() => {
+        setBranchInput(branch)
+    }, [branch])
+
+    const handleBranchFilter = (newBranch: string) => {
+        if (!newBranch) return;
+        const newParams = new URLSearchParams(searchParams.toString())
+        newParams.set("branch", newBranch)
+        router.push(`${pathname}?${newParams.toString()}`)
+    }
 
     // Processing Data
     const getLatestPlan = (componentId: string, env: string) => {
@@ -140,12 +161,22 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
 
 
             <Tabs defaultValue="map" className="w-full">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
                     <h2 className="text-lg font-semibold tracking-tight">Infrastructure State</h2>
-                    <TabsList>
-                        <TabsTrigger value="map">Map View</TabsTrigger>
-                        <TabsTrigger value="table">Table View</TabsTrigger>
-                    </TabsList>
+                    <div className="flex items-center gap-4">
+                        <Input
+                            placeholder="Filter by branch..."
+                            value={branchInput}
+                            onChange={(e) => setBranchInput(e.target.value)}
+                            onBlur={() => handleBranchFilter(branchInput)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleBranchFilter(branchInput)}
+                            className="w-48 bg-white h-9"
+                        />
+                        <TabsList>
+                            <TabsTrigger value="map">Map View</TabsTrigger>
+                            <TabsTrigger value="table">Table View</TabsTrigger>
+                        </TabsList>
+                    </div>
                 </div>
 
                 <TabsContent value="map" className="mt-0">

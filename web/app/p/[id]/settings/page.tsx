@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2 } from "lucide-react"
+import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2, Settings } from "lucide-react"
 import { toast } from "sonner"
 
 export default function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,12 +41,27 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     // Environment Config State
     const [envConfig, setEnvConfig] = useState<Record<string, { group: string, region: string }>>({})
 
+    const [defaultBranch, setDefaultBranch] = useState("develop")
+
     // Load initial state from project
     const [loaded, setLoaded] = useState(false)
     if (project && !loaded) {
         if (project.notifications) setNotifState(project.notifications)
         if (project.environments_config) setEnvConfig(project.environments_config)
+        if (project.default_branch) setDefaultBranch(project.default_branch)
         setLoaded(true)
+    }
+
+    const handleSaveGeneral = async () => {
+        setSettingsLoading(true)
+        try {
+            await updateProjectSettings(id, { default_branch: defaultBranch })
+            toast.success("General settings saved")
+        } catch (e) {
+            toast.error("Failed to save general settings")
+        } finally {
+            setSettingsLoading(false)
+        }
     }
 
     const handleSaveEnvConfig = async () => {
@@ -169,6 +184,30 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                 <h1 className="text-2xl font-bold tracking-tight text-[#14161A]">Project Settings</h1>
                 <p className="text-muted-foreground">Manage project lifecycle.</p>
             </div>
+
+            {/* General Settings Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center"><Settings className="mr-2 h-5 w-5" /> General Settings</CardTitle>
+                    <CardDescription>Configure project-wide defaults.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="default-branch">Default Branch</Label>
+                        <Input
+                            id="default-branch"
+                            placeholder="e.g. main or develop"
+                            value={defaultBranch}
+                            onChange={(e) => setDefaultBranch(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">The branch used by default for viewing and comparing Terraform plans.</p>
+                    </div>
+
+                    <Button onClick={handleSaveGeneral} disabled={settingsLoading}>
+                        {settingsLoading ? "Saving..." : "Save Changes"}
+                    </Button>
+                </CardContent>
+            </Card>
 
             {/* Notifications Card */}
             <Card>

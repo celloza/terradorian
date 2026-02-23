@@ -12,7 +12,22 @@ interface DependencyGraphProps {
 
 export function DependencyGraph({ components, plans }: DependencyGraphProps) {
 
-    // 1. Build Data & Layout
+    // 1. Filter for latest plan per component
+    const latestPlans = useMemo(() => {
+        const map = new Map<string, any>()
+        plans.forEach(p => {
+            if (!p.component_id) return
+            // If text comparison of timestamp strings works for ISO dates, great. 
+            // Otherwise convert to Date.
+            const existing = map.get(p.component_id)
+            if (!existing || new Date(p.timestamp) > new Date(existing.timestamp)) {
+                map.set(p.component_id, p)
+            }
+        })
+        return map
+    }, [plans])
+
+    // 2. Build Data & Layout
     const { nodes, edges } = useMemo(() => {
         const flowNodes: Node[] = []
         const flowEdges: Edge[] = []
@@ -25,7 +40,7 @@ export function DependencyGraph({ components, plans }: DependencyGraphProps) {
         const componentLayouts = new Map<string, { width: number, height: number, internalNodes: Node[], internalEdges: Edge[] }>()
 
         components.forEach((c) => {
-            const plan = plans.find(p => p.component_id === c.id)
+            const plan = latestPlans.get(c.id)
 
             // Default Size
             let groupWidth = 300
@@ -97,11 +112,14 @@ export function DependencyGraph({ components, plans }: DependencyGraphProps) {
                     const actions = changes.get(n)
                     const { background, borderColor } = getStyleForActions(actions)
 
+                    // ReactFlow needs top-left, Dagre gives center
+                    const x = node.x - node.width / 2
+                    const y = node.y - node.height / 2
+
                     internalNodes.push({
                         id: n,
                         data: { label: node.label, type: node.type },
-                        // ReactFlow needs top-left, Dagre gives center
-                        position: { x: node.x - node.width / 2, y: node.y - node.height / 2 },
+                        position: { x, y },
                         parentNode: c.id,
                         extent: 'parent',
                         style: {
@@ -159,7 +177,7 @@ export function DependencyGraph({ components, plans }: DependencyGraphProps) {
         })
 
         // Inter-component dependencies
-        plans.forEach(plan => {
+        latestPlans.forEach(plan => {
             const sourceId = plan.component_id
             const deps = plan.dependencies || []
             deps.forEach((targetId: string) => {
@@ -216,7 +234,7 @@ export function DependencyGraph({ components, plans }: DependencyGraphProps) {
         })
 
         return { nodes: flowNodes, edges: flowEdges }
-    }, [components, plans])
+    }, [components, latestPlans])
 
     return (
         <div style={{ height: '600px', border: '1px solid #eee', borderRadius: '8px', background: '#fafafa' }}>

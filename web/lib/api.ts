@@ -78,11 +78,11 @@ export const revokeToken = async (project_id: string, token_id: string) => {
 };
 
 // Plans (Ingest)
-export const manualIngest = async (component_id: string, environment: string, terraform_plan: any) => {
+export const manualIngest = async (component_id: string, environment: string, branch: string, terraform_plan: any) => {
     const res = await fetch(`${API_BASE}/manual_ingest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ component_id, environment, terraform_plan }),
+        body: JSON.stringify({ component_id, environment, branch, terraform_plan }),
     });
     if (!res.ok) {
         const errorText = await res.text();
@@ -91,13 +91,16 @@ export const manualIngest = async (component_id: string, environment: string, te
     return res.json();
 };
 
-export const listPlans = (project_id: string, component_id?: string, environment?: string) => {
+export const listPlans = (project_id: string, component_id?: string, environment?: string, branch?: string) => {
     let url = `/list_plans?project_id=${project_id}`;
     if (component_id) {
         url += `&component_id=${component_id}`;
     }
     if (environment) {
         url += `&environment=${environment}`;
+    }
+    if (branch) {
+        url += `&branch=${branch}`;
     }
     return url;
 };
