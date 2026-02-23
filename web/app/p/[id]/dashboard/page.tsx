@@ -32,7 +32,8 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const branchQuery = searchParams.get("branch")
     const branch = branchQuery || project?.default_branch || "develop"
 
-    const { data: plans, mutate } = useSWR(listPlans(id, undefined, env, branch), fetcher)
+    const { data: allPlans, mutate } = useSWR(listPlans(id, undefined, env, undefined), fetcher)
+    const filteredPlans = allPlans?.filter((p: any) => p.branch === branch)
 
     const [branchInput, setBranchInput] = useState(branch)
 
@@ -139,7 +140,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                 </div>
             </div>
 
-            <ProjectDashboard plans={plans} />
+            <ProjectDashboard plans={filteredPlans} />
 
             {/* Recent Activity / Drift Reports */}
             <div className="space-y-4">
@@ -159,11 +160,11 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {!plans ? (
+                            {!allPlans ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="text-center h-24">Loading...</TableCell>
                                 </TableRow>
-                            ) : plans.length === 0 ? (
+                            ) : allPlans.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
                                         <div className="flex flex-col items-center gap-2">
@@ -173,7 +174,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                plans.slice(0, 10).map((plan: any) => (
+                                allPlans.slice(0, 10).map((plan: any) => (
                                     <TableRow key={plan.id}>
                                         <TableCell className="font-medium text-zinc-900">{new Date(plan.timestamp).toLocaleString()}</TableCell>
                                         <TableCell>{plan.component_name || "Unknown"}</TableCell>
