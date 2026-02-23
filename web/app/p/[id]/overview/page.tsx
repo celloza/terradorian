@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Activity, CheckCircle2, AlertTriangle, HelpCircle, ArrowRight, Ban, ArrowLeft } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Activity, CheckCircle2, AlertTriangle, HelpCircle, ArrowRight, Ban, ArrowLeft, History, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { DashboardActionMenu } from "@/components/dashboard-action-menu"
 import {
@@ -40,7 +41,8 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
     const branch = branchQuery || activeProject?.default_branch || "develop"
 
     const { data: components, mutate: mutateComponents } = useSWR(() => `/list_components?project_id=${projectId}`, fetcher)
-    const { data: plans, mutate } = useSWR(() => `/list_plans?project_id=${projectId}&branch=${branch}`, fetcher)
+    const { data: allPlans, mutate } = useSWR(() => `/list_plans?project_id=${projectId}`, fetcher)
+    const filteredPlans = allPlans?.filter((p: any) => p.branch === branch)
 
     const [branchInput, setBranchInput] = useState(branch)
 
@@ -57,9 +59,8 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
 
     // Processing Data
     const getLatestPlan = (componentId: string, env: string) => {
-        if (!plans) return null
-        // Plans are ordered by timestamp desc from API (LIMIT 100 - acceptable for prototype)
-        return plans.find((p: any) => p.component_id === componentId && p.environment === env)
+        if (!filteredPlans) return null
+        return filteredPlans.find((p: any) => p.component_id === componentId && p.environment === env)
     }
 
     const getStatus = (plan: any) => {
@@ -79,7 +80,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
     let totalAligned = 0
     let totalUnknown = 0
 
-    if (components && plans) {
+    if (components && filteredPlans) {
         components.forEach((comp: any) => {
             environments.forEach((env: string) => {
                 const plan = getLatestPlan(comp.id, env)
@@ -431,6 +432,70 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* Recent Activity / Drift Reports */}
+            <div className="space-y-4 pt-8">
+                <h2 className="text-lg font-semibold tracking-tight flex items-center text-[#14161A]">
+                    <History className="mr-2 h-5 w-5" /> Recent Ingestions (All Branches)
+                </h2>
+                <div className="rounded-md border bg-white shadow-sm">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-zinc-50">
+                                <TableHead>Timestamp</TableHead>
+                                <TableHead>Environment</TableHead>
+                                <TableHead>Component</TableHead>
+                                <TableHead>Branch</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {!allPlans ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="text-center h-24">Loading...</TableCell>
+                                </TableRow>
+                            ) : allPlans.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <EyeOff className="h-6 w-6" />
+                                            No drift reports found.
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                allPlans.slice(0, 10).map((plan: any) => (
+                                    <TableRow key={plan.id}>
+                                        <TableCell className="font-medium text-zinc-900">{new Date(plan.timestamp).toLocaleString()}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className="font-mono text-xs uppercase">{plan.environment}</Badge>
+                                        </TableCell>
+                                        <TableCell>{plan.component_name || "Unknown"}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary" className="font-mono text-xs">{plan.branch || "develop"}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Ingested</Badge>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-auto p-0 px-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-50"
+                                                    asChild
+                                                >
+                                                    <Link href={`/p/${projectId}/dashboard?env=${plan.environment}&branch=${plan.branch || 'develop'}`}>
+                                                        View Dashboard
+                                                    </Link>
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </div>
         </div >
     )
 }
