@@ -76,6 +76,7 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         component_id = req_body.get('component_id')
         component_name = req_body.get('component_name')
         environment = req_body.get('environment')
+        branch = req_body.get('branch', 'develop')
         tf_plan = req_body.get('terraform_plan')
         
         if not (component_id or component_name) or not environment or not tf_plan:
@@ -83,13 +84,14 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
              
         # Create object for compatibility with existing code
         class IngestData:
-            def __init__(self, cid, cname, env, plan):
+            def __init__(self, cid, cname, env, branch, plan):
                 self.component_id = cid
                 self.component_name = cname
                 self.environment = env
+                self.branch = branch
                 self.terraform_plan = plan
                 
-        ingest_data = IngestData(component_id, component_name, environment, tf_plan)
+        ingest_data = IngestData(component_id, component_name, environment, branch, tf_plan)
 
     except ValueError as e:
         return func.HttpResponse(f"Invalid JSON: {e}", status_code=400)
@@ -137,6 +139,7 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
     # 1. Use Full Plan (No Pruning as requested)
     doc_dict['terraform_plan'] = tf_plan
     doc_dict['environment'] = ingest_data.environment
+    doc_dict['branch'] = ingest_data.branch
     
     if 'terraform_version' in tf_plan:
         doc_dict['terraform_version'] = tf_plan['terraform_version']

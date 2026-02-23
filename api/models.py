@@ -5,6 +5,7 @@ class PlanSchema(BaseModel):
     project_name: str | None = None
     component_name: str | None = None
     environment: str = "dev"
+    branch: str = "develop"
     terraform_plan: Dict[str, Any]
     terraform_version: str | None = None
     providers: list[str] | None = None
@@ -14,6 +15,7 @@ class CreateProjectSchema(BaseModel):
     name: str
     description: str | None = None
     environments: list[str] | None = ["dev"]
+    default_branch: str = "develop"
 
 class AddEnvironmentSchema(BaseModel):
     project_id: str
@@ -33,6 +35,7 @@ class UpdateComponentSchema(BaseModel):
 class ManualIngestSchema(BaseModel):
     component_id: str
     environment: str
+    branch: str = "develop"
     terraform_plan: Dict[str, Any]
 
 class AuthSettingsSchema(BaseModel):
@@ -71,3 +74,4 @@ class UpdateProjectSettingsSchema(BaseModel):
     description: str | None = None
     environments: list[str] | None = None
     environments_config: Dict[str, Any] | None = None
+    default_branch: str | None = None

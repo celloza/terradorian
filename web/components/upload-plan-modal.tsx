@@ -28,21 +28,25 @@ export function UploadPlanModal({ isOpen, onChange, onUploadComplete }: UploadPl
     // Form State
     const [selectedComponent, setSelectedComponent] = useState("")
     const [selectedEnv, setSelectedEnv] = useState(currentEnv)
+    const [selectedBranch, setSelectedBranch] = useState("develop")
     const [file, setFile] = useState<File | null>(null)
     const [isDragging, setIsDragging] = useState(false)
+
+    // Data Load for project (needed for default branch)
+    const { data: projects } = useSWR("/list_projects", fetcher)
+    const project = projects?.find((p: any) => p.id === projectId)
+    const environments = project?.environments || ["dev"]
 
     // Reset env when modal opens or URL changes
     useEffect(() => {
         if (isOpen) {
             setSelectedEnv(currentEnv)
+            setSelectedBranch(project?.default_branch || "develop")
         }
-    }, [isOpen, currentEnv])
+    }, [isOpen, currentEnv, project])
 
-    // Data Load
+    // Data Load for components
     const { data: components } = useSWR(projectId ? listComponents(projectId) : null, fetcher)
-    const { data: projects } = useSWR("/list_projects", fetcher)
-    const project = projects?.find((p: any) => p.id === projectId)
-    const environments = project?.environments || ["dev"]
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
@@ -79,7 +83,7 @@ export function UploadPlanModal({ isOpen, onChange, onUploadComplete }: UploadPl
             const text = await file.text()
             const json = JSON.parse(text)
 
-            await manualIngest(selectedComponent, selectedEnv, json)
+            await manualIngest(selectedComponent, selectedEnv, selectedBranch, json)
 
             onChange(false)
             setFile(null)
@@ -133,6 +137,16 @@ export function UploadPlanModal({ isOpen, onChange, onUploadComplete }: UploadPl
                                 ))}
                             </SelectContent>
                         </Select>
+                    </div>
+
+                    {/* Branch Input */}
+                    <div className="grid gap-2">
+                        <Label>Branch</Label>
+                        <Input
+                            placeholder="e.g. develop or feature/new-ui"
+                            value={selectedBranch}
+                            onChange={(e) => setSelectedBranch(e.target.value)}
+                        />
                     </div>
 
                     {/* File Drop/Input */}
