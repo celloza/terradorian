@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { Trash2, Network, History, EyeOff, Eye, Loader2 } from "lucide-react";
@@ -35,11 +36,10 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const { data: allPlans, mutate } = useSWR(listPlans(id, undefined, env, undefined), fetcher)
     const filteredPlans = allPlans?.filter((p: any) => p.branch === branch)
 
-    const [branchInput, setBranchInput] = useState(branch)
-
-    useEffect(() => {
-        setBranchInput(branch)
-    }, [branch])
+    const uniqueBranches = Array.from(new Set(allPlans?.map((p: any) => p.branch) || []))
+    if (!uniqueBranches.includes(project?.default_branch || "develop")) {
+        uniqueBranches.unshift(project?.default_branch || "develop")
+    }
 
     const handleBranchFilter = (newBranch: string) => {
         if (!newBranch) return; // Must have some branch
@@ -123,14 +123,19 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                     <p className="text-muted-foreground">Detailed drift analysis for this environment.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Input
-                        placeholder="Filter by branch..."
-                        value={branchInput}
-                        onChange={(e) => setBranchInput(e.target.value)}
-                        onBlur={() => handleBranchFilter(branchInput)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleBranchFilter(branchInput)}
-                        className="w-48 bg-white h-9"
-                    />
+                    <Select
+                        value={branch}
+                        onValueChange={(val) => handleBranchFilter(val)}
+                    >
+                        <SelectTrigger className="w-48 bg-white h-9">
+                            <SelectValue placeholder="Branch..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {uniqueBranches.map((b: any) => (
+                                <SelectItem key={b} value={b}>{b}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <Button variant="outline" asChild>
                         <Link href={`/p/${id}/graph?env=${env}`}>
                             <Network className="mr-2 h-4 w-4" />
