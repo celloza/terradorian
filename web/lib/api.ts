@@ -149,3 +149,29 @@ export const getPlan = async (plan_id: string) => {
     if (!res.ok) throw new Error("Failed to fetch plan");
     return res.json();
 };
+
+export const listPendingIngestions = async (project_id: string) => {
+    const res = await fetch(`${API_BASE}/list_pending_ingestions?project_id=${project_id}`);
+    if (!res.ok) throw new Error("Failed to fetch pending ingestions");
+    return res.json();
+};
+
+export const approveIngestion = async (plan_id: string) => {
+    const res = await fetch(`${API_BASE}/approve_ingestion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id }),
+    });
+    if (!res.ok) throw new Error("Failed to approve ingestion");
+    return res.json();
+};
+
+export const rejectIngestion = async (plan_id: string) => {
+    const res = await fetch(`${API_BASE}/reject_ingestion`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id }),
+    });
+    if (!res.ok) throw new Error("Failed to reject ingestion");
+    return res.json();
+};

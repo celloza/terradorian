@@ -42,6 +42,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
 
     const { data: components, mutate: mutateComponents } = useSWR(() => `/list_components?project_id=${projectId}`, fetcher)
     const { data: allPlans, mutate } = useSWR(() => `/list_plans?project_id=${projectId}`, fetcher)
+    const { data: pendingIngestions } = useSWR(() => `/list_pending_ingestions?project_id=${projectId}`, fetcher)
     const filteredPlans = allPlans?.filter((p: any) => p.branch === branch)
 
     const [branchInput, setBranchInput] = useState(branch)
@@ -104,7 +105,17 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                     <h1 className="text-2xl font-bold tracking-tight text-[#14161A]">Project Overview</h1>
                     <p className="text-muted-foreground">High-level view of infrastructure drift across all environments.</p>
                 </div>
-                <DashboardActionMenu onUploadComplete={() => mutate()} />
+                <div className="flex items-center gap-4">
+                    {pendingIngestions && pendingIngestions.length > 0 && (
+                        <Link href={`/p/${projectId}/settings`}>
+                            <Badge variant="destructive" className="flex items-center hover:bg-destructive/90 cursor-pointer py-1.5 px-3">
+                                <History className="w-4 h-4 mr-2" />
+                                {pendingIngestions.length} Pending Ingestion{pendingIngestions.length !== 1 ? 's' : ''}
+                            </Badge>
+                        </Link>
+                    )}
+                    <DashboardActionMenu onUploadComplete={() => mutate()} />
+                </div>
             </div>
 
             {/* Summary Cards */}

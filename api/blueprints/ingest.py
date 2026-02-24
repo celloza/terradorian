@@ -97,6 +97,9 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(f"Invalid JSON: {e}", status_code=400)
 
     # Fetch Component Logic
+    component_doc = None
+    is_pending_approval = False
+    
     try:
         container_comps = get_container("components")
         
@@ -106,7 +109,7 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         elif ingest_data.component_name:
              # Name lookup (Requires Project Context)
              if not project_doc:
-                 return func.HttpResponse("component_name lookup requires PAT authentication (Project Context)", status_code=400)
+                 return func.HttpResponse("component_name lookup requires PAT authentication (Project Context) for new or existing components.", status_code=400)
              
              # Cross-partition query (Acceptable for lookup)
              query = "SELECT * FROM c WHERE c.project_id = @pid AND c.name = @name"
@@ -117,18 +120,20 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
              results = list(container_comps.query_items(query=query, parameters=params, enable_cross_partition_query=True))
              
              if not results:
-                 return func.HttpResponse(f"Component '{ingest_data.component_name}' not found in Project '{project_doc['name']}'", status_code=404)
-             if len(results) > 1:
+                 # Component does not exist. Mark as pending approval.
+                 is_pending_approval = True
+             elif len(results) > 1:
                   return func.HttpResponse(f"Ambiguous component name '{ingest_data.component_name}'", status_code=409)
-                  
-             component_doc = results[0]
-             # Backfill ID for downstream logic
-             ingest_data.component_id = component_doc['id']
+             else:
+                  component_doc = results[0]
+                  # Backfill ID for downstream logic
+                  ingest_data.component_id = component_doc['id']
         else:
              return func.HttpResponse("Either component_id or component_name is required", status_code=400)
 
     except exceptions.CosmosResourceNotFoundError:
-        return func.HttpResponse("Component not found", status_code=404)
+        # If looked up by component_id and not found, this is a hard error (ids shouldn't be guessed)
+        return func.HttpResponse("Component ID not found", status_code=404)
     except Exception as e:
          return func.HttpResponse(f"Error fetching component: {e}", status_code=500)
 
@@ -166,10 +171,24 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
     try:
         logging.info("Resolving project metadata...")
         project_container = get_container("projects")
-        project_doc = project_container.read_item(item=component_doc['project_id'], partition_key=component_doc['project_id'])
         
-        # Validation: Enforce Cloud Platform Consistency
-        project_platform = project_doc.get('cloud_platform')
+        # If we have a component_doc, its project_id is the primary source of truth (especially for legacy shared secret)
+        target_project_id = component_doc['project_id'] if component_doc else project_doc['id'] if project_doc else None
+        
+        if not target_project_id:
+            return func.HttpResponse("Cannot determine project context", status_code=400)
+            
+        # Re-fetch project doc to ensure we have the latest (including environments) if we didn't get it from PAT or if we need to verify component ownership
+        fetched_project_doc = project_container.read_item(item=target_project_id, partition_key=target_project_id)
+        
+        # Environment Check
+        if ingest_data.environment not in fetched_project_doc.get('environments', []):
+            is_pending_approval = True
+            
+        doc_dict['is_pending_approval'] = is_pending_approval
+        
+        # Validation: Enforce Cloud Platform Consistency (Skip if pending, but maybe set project platform anyway?)
+        project_platform = fetched_project_doc.get('cloud_platform')
         if project_platform and project_platform != "Unknown" and cloud_platform != "Unknown":
             if project_platform != cloud_platform:
                 return func.HttpResponse(
@@ -179,17 +198,22 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         
         # If project has no platform set, set it now
         if (not project_platform or project_platform == "Unknown") and cloud_platform != "Unknown":
-            project_doc['cloud_platform'] = cloud_platform
-            project_container.upsert_item(project_doc)
+            fetched_project_doc['cloud_platform'] = cloud_platform
+            project_container.upsert_item(fetched_project_doc)
 
-        doc_dict['project_id'] = component_doc['project_id']
-        doc_dict['component_id'] = component_doc['id']
-        doc_dict['project_name'] = project_doc['name']
-        doc_dict['component_name'] = component_doc['name']
+        doc_dict['project_id'] = fetched_project_doc['id']
+        doc_dict['project_name'] = fetched_project_doc['name']
+        
+        if component_doc:
+            doc_dict['component_id'] = component_doc['id']
+            doc_dict['component_name'] = component_doc['name']
+        else:
+            doc_dict['component_name'] = ingest_data.component_name
+            # No component ID yet as it is pending
         
         # --- PAT Ownership Check ---
-        # If authenticated via PAT (project_doc matches), ensure component belongs to that project
-        if project_doc and 'id' in project_doc:
+        # If authenticated via PAT (project_doc from header matches), ensure component belongs to that project
+        if project_doc and 'id' in project_doc and component_doc:
              # Just strict equality since project_doc comes from PAT verification
              if component_doc['project_id'] != project_doc['id']:
                  logging.warning(f"Security Alert: PAT for Project {project_doc['id']} tried to upload to Component {component_doc['id']} (Project {component_doc['project_id']})")
@@ -221,17 +245,13 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
             enable_cross_partition_query=True
         ))
         
-        # Map normalized name -> ID
-        comp_map = {c['name'].lower(): c['id'] for c in project_components if c['id'] != doc_dict['component_id']}
-        
-        found_dependencies = set()
-        
         # Helper to check string for component names
         def check_text(text):
             if not isinstance(text, str): return
             text_lower = text.lower()
             for c_name, c_id in comp_map.items():
-                if c_name in text_lower:
+                # Avoid self-referential matching if component_id is known
+                if doc_dict.get('component_id') != c_id and c_name in text_lower:
                     found_dependencies.add(c_id)
 
         # 1. Scan Variables

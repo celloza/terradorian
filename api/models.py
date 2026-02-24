@@ -33,10 +33,17 @@ class UpdateComponentSchema(BaseModel):
     name: str | None = None
 
 class ManualIngestSchema(BaseModel):
-    component_id: str
+    component_id: str | None = None
+    component_name: str | None = None
     environment: str
     branch: str = "develop"
     terraform_plan: Dict[str, Any]
+
+class ApproveIngestionSchema(BaseModel):
+    plan_id: str
+
+class RejectIngestionSchema(BaseModel):
+    plan_id: str
 
 class AuthSettingsSchema(BaseModel):
     client_id: str
