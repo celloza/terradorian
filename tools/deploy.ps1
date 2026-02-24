@@ -68,7 +68,7 @@ if (Test-Path $webPackageJson) {
 }
 
 # 3. Git Commit
-$commitMsg = "feat: $Message (v$newVersion)"
+$commitMsg = "NHSO-0000: $Message (v$newVersion)"
 Write-Host "Committing: $commitMsg" -ForegroundColor Cyan
 git add .
 git commit -S -m "$commitMsg"
