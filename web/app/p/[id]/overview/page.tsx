@@ -20,6 +20,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Helper to group environments
 // Returns: { "Production": { "UK South": ["production-uks-1", ...], "Global": ["production-global"] } }
@@ -45,11 +46,10 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
     const { data: pendingIngestions } = useSWR(() => `/list_pending_ingestions?project_id=${projectId}`, fetcher)
     const filteredPlans = allPlans?.filter((p: any) => p.branch === branch)
 
-    const [branchInput, setBranchInput] = useState(branch)
-
-    useEffect(() => {
-        setBranchInput(branch)
-    }, [branch])
+    const uniqueBranches = Array.from(new Set(allPlans?.map((p: any) => p.branch) || []))
+    if (!uniqueBranches.includes(activeProject?.default_branch || "develop")) {
+        uniqueBranches.unshift(activeProject?.default_branch || "develop")
+    }
 
     const handleBranchFilter = (newBranch: string) => {
         if (!newBranch) return;
@@ -176,14 +176,19 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
                     <h2 className="text-lg font-semibold tracking-tight">Infrastructure State</h2>
                     <div className="flex items-center gap-4">
-                        <Input
-                            placeholder="Filter by branch..."
-                            value={branchInput}
-                            onChange={(e) => setBranchInput(e.target.value)}
-                            onBlur={() => handleBranchFilter(branchInput)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleBranchFilter(branchInput)}
-                            className="w-48 bg-white h-9"
-                        />
+                        <Select
+                            value={branch}
+                            onValueChange={(val) => handleBranchFilter(val)}
+                        >
+                            <SelectTrigger className="w-48 bg-white h-9">
+                                <SelectValue placeholder="Branch..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {uniqueBranches.map((b: any) => (
+                                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <TabsList>
                             <TabsTrigger value="map">Map View</TabsTrigger>
                             <TabsTrigger value="table">Table View</TabsTrigger>
