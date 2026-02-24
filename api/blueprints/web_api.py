@@ -6,7 +6,7 @@ import hashlib
 from datetime import datetime
 from azure.cosmos import exceptions
 from pydantic import ValidationError
-from models import CreateProjectSchema, CreateComponentSchema, UpdateProjectSettingsSchema, UpdateComponentSchema
+from models import CreateProjectSchema, CreateComponentSchema, UpdateProjectSettingsSchema, UpdateComponentSchema, ApproveIngestionSchema, RejectIngestionSchema
 from shared.db import get_container
 
 bp = func.Blueprint()
@@ -243,8 +243,11 @@ def list_plans(req: func.HttpRequest) -> func.HttpResponse:
             where_clauses.append("c.branch = @branch")
             parameters.append({"name": "@branch", "value": branch})
             
+        base_where = "(NOT IS_DEFINED(c.is_pending_approval) OR c.is_pending_approval = false)"
         if where_clauses:
-            query += " WHERE " + " AND ".join(where_clauses)
+            query += " WHERE " + base_where + " AND " + " AND ".join(where_clauses)
+        else:
+            query += " WHERE " + base_where
             
         query += " ORDER BY c.timestamp DESC OFFSET 0 LIMIT 100"
             
@@ -473,5 +476,119 @@ def update_project_settings(req: func.HttpRequest) -> func.HttpResponse:
         
     except exceptions.CosmosResourceNotFoundError:
         return func.HttpResponse("Project not found", status_code=404)
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="list_pending_ingestions", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def list_pending_ingestions(req: func.HttpRequest) -> func.HttpResponse:
+    project_id = req.params.get('project_id')
+    if not project_id:
+        return func.HttpResponse("project_id param required", status_code=400)
+        
+    try:
+        container = get_container("plans", "/id")
+        
+        query = "SELECT c.id, c.project_id, c.component_name, c.environment, c.branch, c.timestamp FROM c WHERE c.project_id = @pid AND c.is_pending_approval = true ORDER BY c.timestamp DESC"
+        parameters = [{"name": "@pid", "value": project_id}]
+            
+        items = list(container.query_items(
+            query=query,
+            parameters=parameters,
+            enable_cross_partition_query=True
+        ))
+        
+        return func.HttpResponse(
+            body=json.dumps(items),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="approve_ingestion", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def approve_ingestion(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        data = ApproveIngestionSchema(**req_body)
+    except (ValueError, ValidationError) as e:
+        return func.HttpResponse(f"Invalid Request: {e}", status_code=400)
+        
+    try:
+        plans_container = get_container("plans", "/id")
+        plan_doc = plans_container.read_item(item=data.plan_id, partition_key=data.plan_id)
+        
+        if not plan_doc.get("is_pending_approval"):
+            return func.HttpResponse("Plan is not pending approval", status_code=400)
+            
+        project_id = plan_doc.get("project_id")
+        proj_container = get_container("projects", "/id")
+        proj_doc = proj_container.read_item(item=project_id, partition_key=project_id)
+        
+        # 1. Update Environment if missing
+        env = plan_doc.get("environment")
+        if env and env not in proj_doc.get("environments", []):
+            envs = proj_doc.get("environments", [])
+            envs.append(env)
+            proj_doc["environments"] = envs
+            proj_container.upsert_item(proj_doc)
+            
+        # 2. Update Component if missing
+        comp_name = plan_doc.get("component_name")
+        comp_container = get_container("components", "/id")
+        
+        query = "SELECT * FROM c WHERE c.project_id = @pid AND c.name = @name"
+        parameters = [
+            {"name": "@pid", "value": project_id},
+            {"name": "@name", "value": comp_name}
+        ]
+        results = list(comp_container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
+        
+        if results:
+            comp_doc = results[0]
+            plan_doc["component_id"] = comp_doc["id"]
+        else:
+            new_comp_id = str(uuid.uuid4())
+            new_comp = {
+                "id": new_comp_id,
+                "project_id": project_id,
+                "name": comp_name,
+                "excluded_environments": []
+            }
+            comp_container.upsert_item(new_comp)
+            plan_doc["component_id"] = new_comp_id
+            
+        # 3. Mark plan as approved
+        plan_doc["is_pending_approval"] = False
+        plans_container.upsert_item(plan_doc)
+        
+        return func.HttpResponse(
+            body=json.dumps({"message": "Approved successfully"}),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Resource not found", status_code=404)
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="reject_ingestion", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def reject_ingestion(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        req_body = req.get_json()
+        data = RejectIngestionSchema(**req_body)
+    except (ValueError, ValidationError) as e:
+        return func.HttpResponse(f"Invalid Request: {e}", status_code=400)
+        
+    try:
+        plans_container = get_container("plans", "/id")
+        plans_container.delete_item(item=data.plan_id, partition_key=data.plan_id)
+        
+        return func.HttpResponse(
+            body=json.dumps({"message": "Rejected successfully"}),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Plan not found", status_code=404)
     except Exception as e:
         return func.HttpResponse(f"Error: {e}", status_code=500)

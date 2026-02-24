@@ -3,7 +3,7 @@
 import { useState, use } from "react"
 import useSWR from "swr"
 import { useRouter } from "next/navigation"
-import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings } from "@/lib/api"
+import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
@@ -11,7 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2, Settings } from "lucide-react"
+import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2, Settings, Check, Loader2, History } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
 
 export default function SettingsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -175,6 +177,37 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
             window.location.reload()
         } catch (e) {
             toast.error("Failed to delete environment")
+        }
+    }
+
+    // Pending Ingestions
+    const { data: pendingIngestions, mutate: mutatePending } = useSWR(project ? () => `/list_pending_ingestions?project_id=${project.id}` : null, fetcher)
+    const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+    const handleApprove = async (planId: string) => {
+        setActionLoading(planId)
+        try {
+            await approveIngestion(planId)
+            toast.success("Ingestion approved!")
+            mutatePending()
+            mutateComponents()
+        } catch (e) {
+            toast.error("Failed to approve ingestion")
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
+    const handleReject = async (planId: string) => {
+        setActionLoading(planId)
+        try {
+            await rejectIngestion(planId)
+            toast.success("Ingestion rejected")
+            mutatePending()
+        } catch (e) {
+            toast.error("Failed to reject ingestion")
+        } finally {
+            setActionLoading(null)
         }
     }
 
@@ -487,6 +520,84 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Pending Ingestions Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center"><History className="mr-2 h-5 w-5" /> Pending Ingestions</CardTitle>
+                    <CardDescription>
+                        Review Terraform plans uploaded for environments or components that do not exist yet.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {!pendingIngestions ? (
+                        <div className="text-sm text-muted-foreground">Loading...</div>
+                    ) : pendingIngestions.length === 0 ? (
+                        <div className="text-sm text-muted-foreground">No pending ingestions.</div>
+                    ) : (
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+                                        <TableHead>Environment</TableHead>
+                                        <TableHead>Component</TableHead>
+                                        <TableHead>Branch</TableHead>
+                                        <TableHead>Timestamp</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {pendingIngestions.map((plan: any) => {
+                                        const isUnknownEnv = !project?.environments?.includes(plan.environment)
+                                        const isUnknownComp = !components?.some((c: any) => c.name === plan.component_name)
+
+                                        return (
+                                            <TableRow key={plan.id}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-mono text-sm">{plan.environment}</span>
+                                                        {isUnknownEnv && <Badge variant="destructive" className="text-[10px] h-4 leading-3">New</Badge>}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium text-sm">{plan.component_name}</span>
+                                                        {isUnknownComp && <Badge variant="destructive" className="text-[10px] h-4 leading-3">New</Badge>}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell><Badge variant="outline" className="font-mono text-xs">{plan.branch}</Badge></TableCell>
+                                                <TableCell className="text-sm text-muted-foreground">{new Date(plan.timestamp).toLocaleString()}</TableCell>
+                                                <TableCell className="text-right space-x-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                        onClick={() => handleApprove(plan.id)}
+                                                        disabled={actionLoading === plan.id}
+                                                    >
+                                                        {actionLoading === plan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                                                        Approve
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                        onClick={() => handleReject(plan.id)}
+                                                        disabled={actionLoading === plan.id}
+                                                    >
+                                                        {actionLoading === plan.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4 mr-1" />}
+                                                        Reject
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
             <Card className="border-red-200 bg-red-50/30">
                 <CardHeader>
