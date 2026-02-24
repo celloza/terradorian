@@ -176,6 +176,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                         <TabsList>
                             <TabsTrigger value="map">Map View</TabsTrigger>
                             <TabsTrigger value="table">Table View</TabsTrigger>
+                            <TabsTrigger value="recent">Recent Ingestions</TabsTrigger>
                         </TabsList>
                     </div>
                 </div>
@@ -433,69 +434,71 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                 </TabsContent>
             </Tabs>
 
-            {/* Recent Activity / Drift Reports */}
-            <div className="space-y-4 pt-8">
-                <h2 className="text-lg font-semibold tracking-tight flex items-center text-[#14161A]">
-                    <History className="mr-2 h-5 w-5" /> Recent Ingestions (All Branches)
-                </h2>
-                <div className="rounded-md border bg-white shadow-sm">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-zinc-50">
-                                <TableHead>Timestamp</TableHead>
-                                <TableHead>Environment</TableHead>
-                                <TableHead>Component</TableHead>
-                                <TableHead>Branch</TableHead>
-                                <TableHead>Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {!allPlans ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center h-24">Loading...</TableCell>
+            {/* Recent Activity / Drift Reports Tab */}
+            <TabsContent value="recent" className="mt-0">
+                <div className="space-y-4 pt-4">
+                    <h2 className="text-lg font-semibold tracking-tight flex items-center text-[#14161A]">
+                        <History className="mr-2 h-5 w-5" /> Recent Ingestions (All Branches)
+                    </h2>
+                    <div className="rounded-md border bg-white shadow-sm">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-zinc-50">
+                                    <TableHead>Timestamp</TableHead>
+                                    <TableHead>Environment</TableHead>
+                                    <TableHead>Component</TableHead>
+                                    <TableHead>Branch</TableHead>
+                                    <TableHead>Status</TableHead>
                                 </TableRow>
-                            ) : allPlans.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <EyeOff className="h-6 w-6" />
-                                            No drift reports found.
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                allPlans.slice(0, 10).map((plan: any) => (
-                                    <TableRow key={plan.id}>
-                                        <TableCell className="font-medium text-zinc-900">{new Date(plan.timestamp).toLocaleString()}</TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className="font-mono text-xs uppercase">{plan.environment}</Badge>
-                                        </TableCell>
-                                        <TableCell>{plan.component_name || "Unknown"}</TableCell>
-                                        <TableCell>
-                                            <Badge variant="secondary" className="font-mono text-xs">{plan.branch || "develop"}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Ingested</Badge>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-6 w-auto p-0 px-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-50"
-                                                    asChild
-                                                >
-                                                    <Link href={`/p/${projectId}/dashboard?env=${plan.environment}&branch=${plan.branch || 'develop'}`}>
-                                                        View Dashboard
-                                                    </Link>
-                                                </Button>
+                            </TableHeader>
+                            <TableBody>
+                                {!allPlans ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="text-center h-24">Loading...</TableCell>
+                                    </TableRow>
+                                ) : allPlans.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <EyeOff className="h-6 w-6" />
+                                                No drift reports found.
                                             </div>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : (
+                                    allPlans.slice(0, 10).map((plan: any) => (
+                                        <TableRow key={plan.id}>
+                                            <TableCell className="font-medium text-zinc-900">{new Date(plan.timestamp).toLocaleString()}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className="font-mono text-xs uppercase">{plan.environment}</Badge>
+                                            </TableCell>
+                                            <TableCell>{plan.component_name || "Unknown"}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="secondary" className="font-mono text-xs">{plan.branch || "develop"}</Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Ingested</Badge>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 w-auto p-0 px-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-50"
+                                                        asChild
+                                                    >
+                                                        <Link href={`/p/${projectId}/dashboard?env=${plan.environment}&branch=${plan.branch || 'develop'}`}>
+                                                            View Dashboard
+                                                        </Link>
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </div>
-            </div>
+            </TabsContent>
         </div >
     )
 }
