@@ -1,7 +1,6 @@
 import azure.functions as func
 import json
 from datetime import datetime
-from models import ProjectSchema, ComponentSchema
 from shared.db import get_container
 from azure.cosmos import exceptions
 
