@@ -245,6 +245,10 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
             enable_cross_partition_query=True
         ))
         
+        # Build comp_map so check_text doesn't throw a ReferenceError
+        comp_map = {c['name'].lower(): c['id'] for c in project_components}
+        found_dependencies = set()
+        
         # Helper to check string for component names
         def check_text(text):
             if not isinstance(text, str): return
@@ -383,32 +387,34 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
 
     # 3. Check for Stale Plan (Moved BEFORE Upload)
     try:
-        container = get_container("plans", "/id")
-        
-        query = """
-            SELECT TOP 1 c.timestamp, c.id
-            FROM c 
-            WHERE c.component_id = @cid AND c.environment = @env 
-            ORDER BY c.timestamp DESC
-        """
-        params = [
-            {"name": "@cid", "value": doc_dict['component_id']},
-            {"name": "@env", "value": doc_dict['environment']}
-        ]
-        
-        existing_plans = list(container.query_items(
-            query=query, 
-            parameters=params, 
-            enable_cross_partition_query=True
-        ))
-        
-        if existing_plans:
-            latest_ts = existing_plans[0]['timestamp']
-            if doc_dict['timestamp'] <= latest_ts:
-                return func.HttpResponse(
-                    f"Stale Plan: Uploaded plan timestamp ({doc_dict['timestamp']}) is not newer than latest plan ({latest_ts}).",
-                    status_code=400
-                )
+        # Only perform the stale plan check if the component actually exists (not pending approval)
+        if not doc_dict.get('is_pending_approval'):
+            container = get_container("plans", "/id")
+            
+            query = """
+                SELECT TOP 1 c.timestamp, c.id
+                FROM c 
+                WHERE c.component_id = @cid AND c.environment = @env 
+                ORDER BY c.timestamp DESC
+            """
+            params = [
+                {"name": "@cid", "value": doc_dict['component_id']},
+                {"name": "@env", "value": doc_dict['environment']}
+            ]
+            
+            existing_plans = list(container.query_items(
+                query=query, 
+                parameters=params, 
+                enable_cross_partition_query=True
+            ))
+            
+            if existing_plans:
+                latest_ts = existing_plans[0]['timestamp']
+                if doc_dict['timestamp'] <= latest_ts:
+                    return func.HttpResponse(
+                        f"Stale Plan: Uploaded plan timestamp ({doc_dict['timestamp']}) is not newer than latest plan ({latest_ts}).",
+                        status_code=400
+                    )
     except Exception as e:
         # If DB check fails, we probably shouldn't proceed? Or log and proceed?
         # Proceeding is risky if DB is down. Failing is safer.
