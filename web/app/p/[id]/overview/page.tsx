@@ -63,6 +63,11 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
     const [deleteOpen, setDeleteOpen] = useState(false)
     const [planToDelete, setPlanToDelete] = useState<any>(null)
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1)
+    const ITEMS_PER_PAGE = 10
+    const totalPages = allPlans ? Math.ceil(allPlans.length / ITEMS_PER_PAGE) : 0
+
     const handleDelete = async () => {
         if (!planToDelete) return
         try {
@@ -498,7 +503,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        allPlans.slice(0, 10).map((plan: any) => (
+                                        allPlans.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((plan: any) => (
                                             <TableRow key={plan.id}>
                                                 <TableCell className="font-medium text-zinc-900">{new Date(plan.timestamp).toLocaleString()}</TableCell>
                                                 <TableCell>
@@ -540,6 +545,31 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                                 </TableBody>
                             </Table>
                         </div>
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between px-2 py-4">
+                                <div className="text-sm text-muted-foreground">
+                                    Page {currentPage} of {totalPages}
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </TabsContent>
             </Tabs>
