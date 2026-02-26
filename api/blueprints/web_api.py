@@ -403,6 +403,10 @@ def delete_environment(req: func.HttpRequest) -> func.HttpResponse:
         project_doc = proj_container.read_item(item=project_id, partition_key=project_id)
         
         current_envs = project_doc.get('environments', [])
+        
+        if len(current_envs) <= 1:
+            return func.HttpResponse("Cannot delete the last remaining environment in a project.", status_code=400)
+            
         if environment in current_envs:
             new_envs = [e for e in current_envs if e != environment]
             project_doc['environments'] = new_envs

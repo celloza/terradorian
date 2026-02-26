@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useParams } from "next/navigation"
 import useSWR from "swr"
-import { fetcher, addEnvironment } from "@/lib/api"
+import { fetcher, addEnvironment, deleteEnvironment } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -41,6 +41,25 @@ export function ManageEnvironmentsModal({ isOpen, onChange }: ManageEnvironments
         }
     }
 
+    const handleDelete = async (envName: string) => {
+        if (environments.length <= 1) {
+            alert("A project must have at least one environment. Cannot delete the last environment.")
+            return
+        }
+
+        if (!confirm(`Are you sure you want to delete the '${envName}' environment and all its plans?`)) return
+
+        setIsLoading(true)
+        try {
+            await deleteEnvironment(projectId, envName)
+            mutate()
+        } catch (e) {
+            alert("Failed to delete environment")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
     return (
         <Dialog open={isOpen} onOpenChange={onChange}>
             <DialogContent className="max-w-md">
@@ -58,8 +77,14 @@ export function ManageEnvironmentsModal({ isOpen, onChange }: ManageEnvironments
                                     <Box className="h-3 w-3 mr-2 text-zinc-500" />
                                     {env}
                                 </span>
-                                {/* Delete not implemented */}
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-red-500" disabled title="Delete not implemented">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-red-500"
+                                    onClick={() => handleDelete(env)}
+                                    disabled={environments.length <= 1 || isLoading}
+                                    title={environments.length <= 1 ? "Cannot delete the last environment" : "Delete environment"}
+                                >
                                     <Trash2 className="h-3 w-3" />
                                 </Button>
                             </div>
