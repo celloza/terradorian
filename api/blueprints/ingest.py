@@ -560,7 +560,19 @@ def delete_plan(req: func.HttpRequest) -> func.HttpResponse:
     logging.info(f"Processing delete_plan request for id: {plan_id}")
 
     try:
+        from shared.storage import delete_plan_blob
         container = get_container("plans", "/id")
+        
+        # Read the document first to get the blob_url
+        try:
+            plan_doc = container.read_item(item=plan_id, partition_key=plan_id)
+            blob_url = plan_doc.get("blob_url")
+            if blob_url:
+                delete_plan_blob(blob_url)
+        except exceptions.CosmosResourceNotFoundError:
+            pass # Standard 404 handled below if record is also missing
+
+        # Delete database record
         container.delete_item(item=plan_id, partition_key=plan_id)
         
         return func.HttpResponse(status_code=204)

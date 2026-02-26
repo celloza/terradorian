@@ -54,3 +54,29 @@ def upload_plan_blob(plan_data: dict, project_id: str, component_id: str, enviro
     blob_client.upload_blob(data_bytes, overwrite=True)
     
     return blob_client.url
+
+def delete_plan_blob(blob_url: str) -> None:
+    """
+    Deletes a plan JSON from blob storage given its URL.
+    """
+    if not blob_url:
+        return
+        
+    try:
+        # Extract blob name from URL
+        # URL format: https://<account_name>.blob.core.windows.net/plans/<blob_name>
+        container_name = "plans"
+        # Find where 'plans/' starts and take everything after it
+        parts = blob_url.split(f"{container_name}/")
+        if len(parts) > 1:
+            blob_name = parts[1]
+            blob_service_client = get_blob_service_client()
+            container_client = blob_service_client.get_container_client(container_name)
+            blob_client = container_client.get_blob_client(blob_name)
+            
+            if blob_client.exists():
+                blob_client.delete_blob()
+    except Exception as e:
+        import logging
+        logging.error(f"Failed to delete blob {blob_url}: {e}")
+        # We don't want a blob deletion failure to stop the DB deletion, so we swallow it here usually
