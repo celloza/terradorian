@@ -429,7 +429,7 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         blob_url = upload_plan_blob(
             plan_data=tf_plan,
             project_id=doc_dict['project_id'],
-            component_id=doc_dict['component_id'],
+            component_id=doc_dict.get('component_id', 'pending'),
             environment=doc_dict['environment'],
             plan_id=doc_dict['id']
         )
