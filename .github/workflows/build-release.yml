@@ -32,6 +32,7 @@ jobs:
       run: |
         cd api
         ls -la
+        echo "${{ github.ref_name }}" > version.txt
         zip -r ../api.zip . -x ".venv/*" "__pycache__/*" "*.git*" "*.pyc"
         
     - name: Upload API Artifact
