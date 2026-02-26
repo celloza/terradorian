@@ -588,3 +588,49 @@ def delete_plan(req: func.HttpRequest) -> func.HttpResponse:
             f"Internal Server Error: {str(e)}",
             status_code=500
         )
+
+@bp.route(route="delete_all_plans", auth_level=func.AuthLevel.ANONYMOUS, methods=["DELETE"])
+def delete_all_plans(req: func.HttpRequest) -> func.HttpResponse:
+    project_id = req.params.get('project_id')
+    if not project_id:
+        return func.HttpResponse("project_id parameter is required", status_code=400)
+        
+    logging.info(f"Processing delete_all_plans request for project_id: {project_id}")
+
+    try:
+        from shared.storage import delete_plan_blob
+        container = get_container("plans", "/id")
+        
+        # Query all plans for the given project_id
+        items = list(container.query_items(
+            query="SELECT * FROM c WHERE c.project_id = @pid",
+            parameters=[{"name": "@pid", "value": project_id}],
+            enable_cross_partition_query=True
+        ))
+        
+        deleted_count = 0
+        for plan_doc in items:
+            plan_id = plan_doc.get("id")
+            blob_url = plan_doc.get("blob_url")
+            
+            # Delete from blob storage
+            if blob_url:
+                delete_plan_blob(blob_url)
+                
+            # Delete from Cosmos DB
+            if plan_id:
+                container.delete_item(item=plan_id, partition_key=plan_id)
+                deleted_count += 1
+                
+        return func.HttpResponse(
+            body=json.dumps({"message": f"Successfully deleted {deleted_count} plans.", "deleted_count": deleted_count}),
+            status_code=200,
+            mimetype="application/json"
+        )
+        
+    except Exception as e:
+        logging.error(f"Error bulk deleting plans: {e}")
+        return func.HttpResponse(
+            f"Internal Server Error: {str(e)}",
+            status_code=500
+        )

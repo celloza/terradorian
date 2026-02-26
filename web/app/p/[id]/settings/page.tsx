@@ -3,7 +3,7 @@
 import { useState, use } from "react"
 import useSWR from "swr"
 import { useRouter } from "next/navigation"
-import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion } from "@/lib/api"
+import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion, deleteAllPlans } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
@@ -27,6 +27,11 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     const [isDeleting, setIsDeleting] = useState(false)
     const [confirmName, setConfirmName] = useState("")
     const [deleteLoading, setDeleteLoading] = useState(false)
+
+    // Bulk Deletion State
+    const [isDeletingAll, setIsDeletingAll] = useState(false)
+    const [confirmDeleteAllName, setConfirmDeleteAllName] = useState("")
+    const [deleteAllLoading, setDeleteAllLoading] = useState(false)
 
     // Notifications State
     const [settingsLoading, setSettingsLoading] = useState(false)
@@ -140,6 +145,24 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
         } finally {
             setDeleteLoading(false)
             setIsDeleting(false)
+        }
+    }
+
+    const handleDeleteAllPlans = async () => {
+        if (!project || (confirmDeleteAllName !== "Delete All" && confirmDeleteAllName !== project.name)) return
+
+        setDeleteAllLoading(true)
+        try {
+            await deleteAllPlans(id)
+            toast.success("All ingestions have been completely deleted.")
+            setConfirmDeleteAllName("")
+            setIsDeletingAll(false)
+            // Hard refresh or mutate data to clear views
+            window.location.reload()
+        } catch (e) {
+            toast.error("Failed to delete all ingestions.")
+        } finally {
+            setDeleteAllLoading(false)
         }
     }
 
@@ -609,6 +632,18 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    <div className="flex items-center justify-between border-b border-red-200/50 pb-4 mb-4">
+                        <div>
+                            <h4 className="font-medium text-red-900">Delete All Ingestions</h4>
+                            <p className="text-sm text-red-700/70">
+                                Permanently wipe out all Terraform plans and blob payloads attached to this project.
+                            </p>
+                        </div>
+                        <Button variant="destructive" onClick={() => setIsDeletingAll(true)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete All Plans
+                        </Button>
+                    </div>
+
                     <div className="flex items-center justify-between">
                         <div>
                             <h4 className="font-medium text-red-900">Delete Project</h4>
@@ -622,6 +657,43 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Delete All Ingestions Confirmation Modal */}
+            <Dialog open={isDeletingAll} onOpenChange={(open) => {
+                if (!open) setConfirmDeleteAllName("")
+                setIsDeletingAll(open)
+            }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Wipe out all plan history?</DialogTitle>
+                        <DialogDescription>
+                            This action cannot be undone. This will permanently trace back and delete every single Terraform plan document and its JSON payload for the project
+                            <span className="font-semibold text-foreground mx-1">{project?.name}</span>.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4 space-y-4">
+                        <Label>Type <span className="font-mono text-xs border rounded px-1.5 py-0.5 bg-zinc-100">Delete All</span> or the project name to confirm</Label>
+                        <Input
+                            value={confirmDeleteAllName}
+                            onChange={(e) => setConfirmDeleteAllName(e.target.value)}
+                            placeholder="Delete All"
+                            className="font-mono bg-red-50"
+                        />
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDeletingAll(false)}>Cancel</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleDeleteAllPlans}
+                            disabled={!project || (confirmDeleteAllName !== "Delete All" && confirmDeleteAllName !== project.name) || deleteAllLoading}
+                        >
+                            {deleteAllLoading ? "Deleting..." : "I understand, delete everything"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation Modal */}
             <Dialog open={isDeleting} onOpenChange={(open) => {
