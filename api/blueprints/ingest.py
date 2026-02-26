@@ -387,9 +387,9 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
 
     # 3. Check for Stale Plan (Moved BEFORE Upload)
     try:
+        container = get_container("plans", "/id")
         # Only perform the stale plan check if the component actually exists (not pending approval)
         if not doc_dict.get('is_pending_approval'):
-            container = get_container("plans", "/id")
             
             query = """
                 SELECT TOP 1 c.timestamp, c.id
