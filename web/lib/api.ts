@@ -175,3 +175,11 @@ export const rejectIngestion = async (plan_id: string) => {
     if (!res.ok) throw new Error("Failed to reject ingestion");
     return res.json();
 };
+
+export const deleteAllPlans = async (project_id: string) => {
+    const res = await fetch(`${API_BASE}/delete_all_plans?project_id=${project_id}`, {
+        method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Failed to delete all plans");
+    return res.json();
+};
