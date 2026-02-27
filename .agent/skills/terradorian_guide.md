@@ -49,7 +49,6 @@ If ingestion fails with 500/RemoteDisconnected:
 - Use `api/shared/db.py` for connecting in scripts.
 
 ## Known Issues / TODOs
-- `delete_plan` does not yet delete the corresponding blob from Blob Storage.
 - `ingest_plan` (verified ingest) is currently less mature than `manual_ingest`.
 
 ## Maintenance
