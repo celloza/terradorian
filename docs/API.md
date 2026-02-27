@@ -39,7 +39,10 @@ Lists plans for a project or component.
 *   **Returns**: List of plan metadata objects (without the heavy `resource_changes` payload usually, or a lightweight version).
 
 #### `DELETE /delete_plan/{id}`
-Deletes a specific plan from Cosmos DB (Note: Currently does not delete from Blob Storage - TODO).
+Deletes a specific plan from Cosmos DB and removes its corresponding raw JSON payload from Azure Blob Storage.
+
+#### `DELETE /delete_all_plans?project_id={id}`
+A bulk deletion endpoint that iterates through all plans associated with a given `project_id`. It systematically removes every plan's raw JSON payload from Azure Blob Storage and deletes the record from Cosmos DB.
 
 ### Project Management
 
