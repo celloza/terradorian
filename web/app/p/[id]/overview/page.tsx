@@ -26,6 +26,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 // Helper to group environments
 // Returns: { "Production": { "UK South": ["production-uks-1", ...], "Global": ["production-global"] } }
 import { groupEnvironments } from "@/lib/utils"
+// Reusing from dashboard
+import { DriftChart } from "@/components/project-dashboard"
 
 
 export default function ProjectOverviewPage({ params }: { params: Promise<{ id: string }> }) {
@@ -221,56 +223,79 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
 
                 <TabsContent value="map" className="mt-0">
                     <div className="space-y-8">
-                        {Object.entries(groupEnvironments(environments, activeProject?.environments_config)).map(([group, regions]) => (
-                            <div key={group} className="space-y-4">
-                                <h3 className="text-xl font-bold text-foreground/80 border-b pb-2">{group}</h3>
-                                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                                    {Object.entries(regions).map(([region, envs]) => (
-                                        <Card key={region} className="overflow-hidden">
-                                            <CardHeader className="bg-muted/30 pb-3">
-                                                <CardTitle className="text-base font-medium flex items-center justify-between">
-                                                    {region}
-                                                    <Badge variant="outline" className="ml-2 bg-background">{envs.length} envs</Badge>
-                                                </CardTitle>
+                        {Object.entries(groupEnvironments(environments, activeProject?.environments_config)).map(([group, regions]) => {
+                            const groupEnvironmentsList = Object.values(regions).flat()
+                            const groupPlans = allPlans?.filter((p: any) => groupEnvironmentsList.includes(p.environment)) || []
+
+                            return (
+                                <div key={group} className="space-y-4">
+                                    <h3 className="text-xl font-bold text-foreground/80 border-b pb-2">{group}</h3>
+
+                                    {groupPlans.length > 0 && (
+                                        <Card className="mb-6 p-4">
+                                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
+                                                <CardTitle className="text-base font-medium">Drift Over Time</CardTitle>
                                             </CardHeader>
-                                            <CardContent className="p-4 space-y-4">
-                                                {envs.map(env => (
-                                                    <div key={env} className="space-y-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{env}</span>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            {components?.map((comp: any) => {
-                                                                const isExcluded = (comp.excluded_environments || []).includes(env)
-                                                                if (isExcluded) return null // Don't show excluded in map to reduce noise? Or show dimmed? Let's hide for now.
+                                            <CardContent className="h-[250px] p-0 mt-4">
+                                                <Tabs defaultValue="resource" className="h-[250px] w-full">
+                                                    <TabsList className="mb-2">
+                                                        <TabsTrigger value="resource">Per Resource</TabsTrigger>
+                                                        <TabsTrigger value="component">Per Component</TabsTrigger>
+                                                    </TabsList>
+                                                    <DriftChart plans={groupPlans} showUnchanged={false} />
+                                                </Tabs>
+                                            </CardContent>
+                                        </Card>
+                                    )}
 
-                                                                const plan = getLatestPlan(comp.id, env)
-                                                                const status = getStatus(plan)
+                                    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                                        {Object.entries(regions).map(([region, envs]) => (
+                                            <Card key={region} className="overflow-hidden">
+                                                <CardHeader className="bg-muted/30 pb-3">
+                                                    <CardTitle className="text-base font-medium flex items-center justify-between">
+                                                        {region}
+                                                        <Badge variant="outline" className="ml-2 bg-background">{envs.length} envs</Badge>
+                                                    </CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="p-4 space-y-4">
+                                                    {envs.map(env => (
+                                                        <div key={env} className="space-y-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{env}</span>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                {components?.map((comp: any) => {
+                                                                    const isExcluded = (comp.excluded_environments || []).includes(env)
+                                                                    if (isExcluded) return null // Don't show excluded in map to reduce noise? Or show dimmed? Let's hide for now.
 
-                                                                return (
-                                                                    <div key={comp.id} className={`
+                                                                    const plan = getLatestPlan(comp.id, env)
+                                                                    const status = getStatus(plan)
+
+                                                                    return (
+                                                                        <div key={comp.id} className={`
                                                                         flex items-center justify-between p-2 rounded border text-xs
                                                                         ${status === 'aligned' ? 'bg-green-50/50 border-green-200 dark:bg-green-900/20 dark:border-green-800' : ''}
                                                                         ${status === 'drift' ? 'bg-orange-50/50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' : ''}
                                                                         ${status === 'unknown' ? 'bg-zinc-50 border-zinc-200 dark:bg-zinc-900/50 dark:border-zinc-800 opacity-70' : ''}
                                                                     `}>
-                                                                        <span className="truncate mr-2 font-medium" title={comp.name}>{comp.name}</span>
-                                                                        {status === 'aligned' && <CheckCircle2 className="h-3 w-3 text-green-600 shrink-0" />}
-                                                                        {status === 'drift' && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
-                                                                        {status === 'unknown' && <HelpCircle className="h-3 w-3 text-zinc-400 shrink-0" />}
-                                                                    </div>
-                                                                )
-                                                            })}
-                                                            {(!components || components.length === 0) && <span className="text-xs text-muted-foreground italic col-span-2">No components</span>}
+                                                                            <span className="truncate mr-2 font-medium" title={comp.name}>{comp.name}</span>
+                                                                            {status === 'aligned' && <CheckCircle2 className="h-3 w-3 text-green-600 shrink-0" />}
+                                                                            {status === 'drift' && <AlertTriangle className="h-3 w-3 text-orange-600 shrink-0" />}
+                                                                            {status === 'unknown' && <HelpCircle className="h-3 w-3 text-zinc-400 shrink-0" />}
+                                                                        </div>
+                                                                    )
+                                                                })}
+                                                                {(!components || components.length === 0) && <span className="text-xs text-muted-foreground italic col-span-2">No components</span>}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                            </CardContent>
-                                        </Card>
-                                    ))}
+                                                    ))}
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 </TabsContent>
 

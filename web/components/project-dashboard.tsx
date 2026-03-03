@@ -242,7 +242,7 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
     )
 }
 
-function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchanged: boolean }) {
+export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchanged: boolean }) {
     // 1. Sort plans chronologically (oldest to newest)
     const sortedPlans = [...plans].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
