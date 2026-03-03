@@ -37,16 +37,17 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
         )
     }
 
-    // 1. Group plans by component_id to get the latest state for each
+    // 1. Group plans by component_id (and environment for aggregate views) to get the latest state for each instance
     const latestComponentPlans = new Map<string, any>();
 
     // Plans are typically sorted by API, but let's ensure we process chronologically or just pick latest
     // The 'plans' prop is usually sorted newest first from the API.
-    // We want the *latest* plan for each component.
+    // We want the *latest* plan for each component+environment pair.
     for (const plan of plans) {
         if (!plan.component_id) continue;
-        if (!latestComponentPlans.has(plan.component_id)) {
-            latestComponentPlans.set(plan.component_id, plan);
+        const key = plan.environment ? `${plan.component_id}-${plan.environment}` : plan.component_id;
+        if (!latestComponentPlans.has(key)) {
+            latestComponentPlans.set(key, plan);
         }
     }
 
@@ -172,13 +173,13 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
                             <CardTitle className="text-sm font-medium">Component Age</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {Array.from(latestComponentPlans.values()).map((plan: any) => {
+                            {Array.from(latestComponentPlans.entries()).map(([key, plan]: [string, any]) => {
                                 const age = getRelativeTime(plan.timestamp);
                                 const isStale = new Date(plan.timestamp).getTime() < new Date().getTime() - (7 * 24 * 60 * 60 * 1000);
                                 return (
-                                    <div key={plan.component_id} className="flex items-center justify-between text-sm">
+                                    <div key={key} className="flex items-center justify-between text-sm">
                                         <div className="flex flex-col">
-                                            <span className="font-medium truncate max-w-[120px]" title={plan.component_id}>{plan.component_name || plan.component_id}</span>
+                                            <span className="font-medium truncate max-w-[120px]" title={plan.component_id}>{plan.environment ? `${plan.component_name || plan.component_id} (${plan.environment})` : (plan.component_name || plan.component_id)}</span>
                                             <span className="text-xs text-muted-foreground">{age}</span>
                                         </div>
                                         {isStale ? (
@@ -274,10 +275,11 @@ function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchanged: boo
     const data = sortedPlans.map(plan => {
         // Update state for this component
         if (plan.component_id) {
-            componentState.set(plan.component_id, getPlanStats(plan));
-            allComponentIds.add(plan.component_id);
+            const key = plan.environment ? `${plan.component_id}-${plan.environment}` : plan.component_id;
+            componentState.set(key, getPlanStats(plan));
+            allComponentIds.add(key);
             if (plan.component_name) {
-                componentNames.set(plan.component_id, plan.component_name);
+                componentNames.set(key, plan.environment ? `${plan.component_name} (${plan.environment})` : plan.component_name);
             }
         }
 
