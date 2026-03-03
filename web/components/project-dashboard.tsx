@@ -199,8 +199,8 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
                 </div>
             </div>
 
-            <Tabs defaultValue="resource" className="col-span-4">
-                <Card>
+            <Tabs defaultValue="component" className="w-full h-full flex flex-col">
+                <Card className="flex-1 min-h-[400px] flex flex-col">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="flex items-center gap-4">
                             <CardTitle>Drift Over Time</CardTitle>
@@ -218,7 +218,7 @@ export function ProjectDashboard({ plans }: ProjectDashboardProps) {
                                 </Label>
                             </div>
                         </div>
-                        <TabsList>
+                        <TabsList className="mb-2">
                             <TabsTrigger value="resource">Per Resource</TabsTrigger>
                             <TabsTrigger value="component">Per Component</TabsTrigger>
                         </TabsList>
