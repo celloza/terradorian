@@ -16,6 +16,7 @@ import { toast } from "sonner"
 import { Trash2, Network, History, EyeOff, Eye, Loader2 } from "lucide-react";
 import { PlanViewer } from "@/components/plan-viewer";
 import { getPlan } from "@/lib/api";
+import { groupEnvironments } from "@/lib/utils";
 
 export default function DashboardPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -23,18 +24,39 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const router = useRouter()
     const pathname = usePathname()
 
-    const env = searchParams.get("env") || "dev"
+    const env = searchParams.get("env")
+    const group = searchParams.get("group")
+    const region = searchParams.get("region")
     const projectId = id // Alias for clarity if needed, or just use id
 
-    // Fetch projects to get default branch
+    // Fetch projects to get default branch and environments
     const { data: projects } = useSWR("/list_projects", fetcher)
     const project = projects?.find((p: any) => p.id === id)
+    const environments = project?.environments || []
+
+    let targetEnvs: string[] = []
+    if (env) {
+        targetEnvs = [env]
+    } else if (group) {
+        const grouped = groupEnvironments(environments, project?.environments_config)
+        const groupData = grouped[group]
+        if (groupData) {
+            if (region) {
+                targetEnvs = groupData[region] || []
+            } else {
+                targetEnvs = Object.values(groupData).flat()
+            }
+        }
+    } else {
+        targetEnvs = ["dev"] // fallback
+    }
 
     const branchQuery = searchParams.get("branch")
     const branch = branchQuery || project?.default_branch || "develop"
 
-    const { data: allPlans, mutate } = useSWR(listPlans(id, undefined, env, undefined), fetcher)
-    const filteredPlans = allPlans?.filter((p: any) => p.branch === branch)
+    const apiEnv = targetEnvs.length === 1 ? targetEnvs[0] : undefined
+    const { data: allPlans, mutate } = useSWR(listPlans(id, undefined, apiEnv, undefined), fetcher)
+    const filteredPlans = allPlans?.filter((p: any) => p.branch === branch && targetEnvs.includes(p.environment))
 
     const uniqueBranches = Array.from(new Set(allPlans?.map((p: any) => p.branch) || []))
     if (!uniqueBranches.includes(project?.default_branch || "develop")) {
@@ -119,8 +141,14 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
         <div className="p-6 space-y-8">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-[#14161A]">Environment <span className="text-muted-foreground font-normal text-lg ml-2">({env})</span></h1>
-                    <p className="text-muted-foreground">Detailed drift analysis for this environment.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-[#14161A]">
+                        {group ? (
+                            <>Group: <span className="text-muted-foreground font-normal text-lg ml-2">({region ? `${group} / ${region}` : group})</span></>
+                        ) : (
+                            <>Environment <span className="text-muted-foreground font-normal text-lg ml-2">({env || "dev"})</span></>
+                        )}
+                    </h1>
+                    <p className="text-muted-foreground">Detailed drift analysis for this {group ? 'group' : 'environment'}.</p>
                 </div>
                 <div className="flex items-center gap-2">
                     <Select
