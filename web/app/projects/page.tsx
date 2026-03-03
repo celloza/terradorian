@@ -49,23 +49,6 @@ export default function ProjectsPage() {
         }
     }
 
-    if (isLoading) {
-        return (
-            <div className="flex h-screen items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        )
-    }
-
-    if (error) {
-        return (
-            <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
-                <p className="text-red-500">Failed to load projects.</p>
-                <Button onClick={() => mutate("/list_projects")}>Retry</Button>
-            </div>
-        )
-    }
-
     return (
         <div className="flex flex-col min-h-screen bg-background">
             <main className="container mx-auto py-10 px-4 max-w-5xl flex-1 flex flex-col">
