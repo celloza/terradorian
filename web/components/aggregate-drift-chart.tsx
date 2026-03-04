@@ -108,11 +108,12 @@ export function AggregateDriftChart({ groups }: { groups: { name: string, plans:
             <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === "dark" ? "#374151" : "#E5E7EB"} />
                 <XAxis
-                    dataKey="date"
+                    dataKey="timestamp"
                     stroke={theme === "dark" ? "#9CA3AF" : "#6B7280"}
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
+                    tickFormatter={(value) => new Date(value).toLocaleDateString()}
                 />
                 <YAxis
                     stroke={theme === "dark" ? "#9CA3AF" : "#6B7280"}
@@ -122,6 +123,7 @@ export function AggregateDriftChart({ groups }: { groups: { name: string, plans:
                     tickFormatter={(value) => `${value}`}
                 />
                 <Tooltip
+                    labelFormatter={(label) => new Date(label).toLocaleString()}
                     contentStyle={{
                         backgroundColor: theme === "dark" ? "#1F2937" : "#FFFFFF",
                         borderColor: theme === "dark" ? "#374151" : "#E5E7EB",
