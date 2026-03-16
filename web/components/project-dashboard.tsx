@@ -271,7 +271,7 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
         return stats;
     }
 
-    // 4. Generate data points
+    // 4. Generate data points — one per plan, with running component state
     const data = sortedPlans.map(plan => {
         // Update state for this component
         if (plan.component_id) {
@@ -293,22 +293,22 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
             agg.update += stats.update
             agg.unchanged += stats.unchanged
             agg.total += stats.total
-
-            // Store total drift for this component
             componentDrift[compId] = stats.total;
         })
 
         return {
-            date: new Date(plan.timestamp).toLocaleDateString(),
+            ts: new Date(plan.timestamp).getTime(),
             total: agg.total,
             create: agg.create,
             delete: agg.del,
             update: agg.update,
             unchanged: agg.unchanged,
-            timestamp: plan.timestamp,
-            ...componentDrift // Spread component drift stats into the data point
+            ...componentDrift
         }
     })
+
+    const formatDate = (value: number) => new Date(value).toLocaleDateString()
+    const formatDateTime = (label: unknown) => new Date(Number(label)).toLocaleString()
 
     return (
         <div className="w-full h-full">
@@ -317,12 +317,15 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                     <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                         <XAxis
-                            dataKey="timestamp"
+                            dataKey="ts"
+                            type="number"
+                            domain={['dataMin', 'dataMax']}
+                            scale="time"
                             stroke="#888888"
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                            tickFormatter={formatDate}
                         />
                         <YAxis
                             stroke="#888888"
@@ -335,13 +338,12 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                             contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", color: "#fff" }}
                             itemStyle={{ color: "#fff" }}
                             cursor={{ stroke: "#888888" }}
-                            labelFormatter={(value) => new Date(value).toLocaleString()}
+                            labelFormatter={formatDateTime}
                         />
 
                         {/* Resource Lines (Dotted) */}
                         <Line type="monotone" dataKey="create" stroke="#22c55e" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Create" />
                         <Line type="monotone" dataKey="delete" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Delete" />
-                        <Line type="monotone" dataKey="update" stroke="#eab308" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Update" />
                         <Line type="monotone" dataKey="update" stroke="#eab308" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Update" />
                         {!showUnchanged ? null : (
                             <Line type="monotone" dataKey="unchanged" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} name="Unchanged" />
@@ -366,12 +368,15 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                     <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                         <XAxis
-                            dataKey="timestamp"
+                            dataKey="ts"
+                            type="number"
+                            domain={['dataMin', 'dataMax']}
+                            scale="time"
                             stroke="#888888"
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                            tickFormatter={formatDate}
                         />
                         <YAxis
                             stroke="#888888"
@@ -384,7 +389,7 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                             contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", color: "#fff" }}
                             itemStyle={{ color: "#fff" }}
                             cursor={{ stroke: "#888888" }}
-                            labelFormatter={(value) => new Date(value).toLocaleString()}
+                            labelFormatter={formatDateTime}
                         />
 
                         {/* Component Lines */}
