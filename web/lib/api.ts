@@ -183,3 +183,16 @@ export const deleteAllPlans = async (project_id: string) => {
     if (!res.ok) throw new Error("Failed to delete all plans");
     return res.json();
 };
+
+export const exportPlans = async (project_id: string, environments: string[], branch?: string) => {
+    let url = `${API_BASE}/export_plans?project_id=${project_id}&environment=${environments.join(',')}`;
+    if (branch) {
+        url += `&branch=${encodeURIComponent(branch)}`;
+    }
+    const res = await fetch(url);
+    if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to export plans");
+    }
+    return res.blob();
+};

@@ -55,6 +55,30 @@ def upload_plan_blob(plan_data: dict, project_id: str, component_id: str, enviro
     
     return blob_client.url
 
+def download_plan_blob(blob_url: str) -> bytes | None:
+    """
+    Downloads a plan JSON from blob storage given its URL.
+    Returns the raw bytes of the blob content, or None if not found.
+    """
+    if not blob_url:
+        return None
+
+    container_name = "plans"
+    parts = blob_url.split(f"{container_name}/")
+    if len(parts) <= 1:
+        return None
+
+    blob_name = parts[1]
+    blob_service_client = get_blob_service_client()
+    container_client = blob_service_client.get_container_client(container_name)
+    blob_client = container_client.get_blob_client(blob_name)
+
+    if not blob_client.exists():
+        return None
+
+    return blob_client.download_blob().readall()
+
+
 def delete_plan_blob(blob_url: str) -> None:
     """
     Deletes a plan JSON from blob storage given its URL.

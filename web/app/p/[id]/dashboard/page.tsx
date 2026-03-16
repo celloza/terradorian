@@ -4,7 +4,7 @@ import { use, useState, useEffect } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import useSWR from "swr"
-import { fetcher, listPlans, deletePlan } from "@/lib/api"
+import { fetcher, listPlans, deletePlan, exportPlans } from "@/lib/api"
 import { ProjectDashboard } from "@/components/project-dashboard"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { Trash2, Network, History, EyeOff, Eye, Loader2 } from "lucide-react";
+import { Trash2, Network, History, EyeOff, Eye, Loader2, Download } from "lucide-react";
 import { PlanViewer } from "@/components/plan-viewer";
 import { getPlan } from "@/lib/api";
 import { groupEnvironments } from "@/lib/utils";
@@ -77,6 +77,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const [planToView, setPlanToView] = useState<any>(null)
     const [viewLoading, setViewLoading] = useState(false)
     const [fullPlan, setFullPlan] = useState<any>(null)
+    const [exporting, setExporting] = useState(false)
 
     const handleDelete = async () => {
         if (!planToDelete) return
@@ -164,6 +165,32 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             ))}
                         </SelectContent>
                     </Select>
+                    <Button
+                        variant="outline"
+                        disabled={exporting || !filteredPlans?.length}
+                        onClick={async () => {
+                            setExporting(true)
+                            try {
+                                const blob = await exportPlans(id, targetEnvs, branch)
+                                const url = URL.createObjectURL(blob)
+                                const a = document.createElement('a')
+                                a.href = url
+                                a.download = `terraform-plans-${targetEnvs.join('-')}-${branch}.zip`
+                                document.body.appendChild(a)
+                                a.click()
+                                a.remove()
+                                URL.revokeObjectURL(url)
+                                toast.success('Plans exported successfully')
+                            } catch (e: unknown) {
+                                toast.error(e instanceof Error ? e.message : 'Failed to export plans')
+                            } finally {
+                                setExporting(false)
+                            }
+                        }}
+                    >
+                        {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                        Export Plans
+                    </Button>
                     <Button variant="outline" asChild>
                         <Link href={`/p/${id}/graph?env=${env}`}>
                             <Network className="mr-2 h-4 w-4" />

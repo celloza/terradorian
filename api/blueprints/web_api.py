@@ -596,3 +596,104 @@ def reject_ingestion(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse("Plan not found", status_code=404)
     except Exception as e:
         return func.HttpResponse(f"Error: {e}", status_code=500)
+
+
+@bp.route(route="export_plans", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def export_plans(req: func.HttpRequest) -> func.HttpResponse:
+    """
+    Downloads a ZIP file containing the latest full terraform plan JSON
+    for each component in the specified environment(s) and branch.
+    Query params: project_id (required), environment (required, comma-separated), branch (optional).
+    """
+    import zipfile
+    import io
+    import logging
+    from shared.storage import download_plan_blob
+
+    project_id = req.params.get('project_id')
+    environment_param = req.params.get('environment')
+    branch = req.params.get('branch')
+
+    if not project_id or not environment_param:
+        return func.HttpResponse("project_id and environment params required", status_code=400)
+
+    environments = [e.strip() for e in environment_param.split(',') if e.strip()]
+
+    try:
+        container = get_container("plans", "/id")
+
+        # Build query: latest plan per component for given environment(s) + branch
+        where_clauses = [
+            "c.project_id = @pid",
+            "(NOT IS_DEFINED(c.is_pending_approval) OR c.is_pending_approval = false)"
+        ]
+        parameters = [{"name": "@pid", "value": project_id}]
+
+        if len(environments) == 1:
+            where_clauses.append("c.environment = @env")
+            parameters.append({"name": "@env", "value": environments[0]})
+        else:
+            env_placeholders = []
+            for i, env in enumerate(environments):
+                param_name = f"@env{i}"
+                env_placeholders.append(param_name)
+                parameters.append({"name": param_name, "value": env})
+            where_clauses.append(f"c.environment IN ({', '.join(env_placeholders)})")
+
+        if branch:
+            where_clauses.append("c.branch = @branch")
+            parameters.append({"name": "@branch", "value": branch})
+
+        query = f"SELECT c.id, c.component_id, c.component_name, c.environment, c.timestamp, c.blob_url FROM c WHERE {' AND '.join(where_clauses)} ORDER BY c.timestamp DESC"
+
+        items = list(container.query_items(
+            query=query,
+            parameters=parameters,
+            enable_cross_partition_query=True
+        ))
+
+        # Pick latest plan per component+environment
+        latest = {}
+        for item in items:
+            key = f"{item.get('component_id', '')}-{item.get('environment', '')}"
+            if key not in latest:
+                latest[key] = item
+
+        if not latest:
+            return func.HttpResponse("No plans found for the given filters", status_code=404)
+
+        # Build ZIP in memory
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for plan in latest.values():
+                blob_url = plan.get('blob_url')
+                comp_name = plan.get('component_name') or plan.get('component_id') or 'unknown'
+                env = plan.get('environment') or 'unknown'
+                # Sanitize filename
+                safe_name = "".join(c if c.isalnum() or c in ('-', '_') else '_' for c in comp_name)
+                safe_env = "".join(c if c.isalnum() or c in ('-', '_') else '_' for c in env)
+                filename = f"{safe_name}_{safe_env}.json"
+
+                if blob_url:
+                    blob_data = download_plan_blob(blob_url)
+                    if blob_data:
+                        zf.writestr(filename, blob_data)
+                    else:
+                        logging.warning(f"Blob not found for plan {plan['id']}, skipping")
+                else:
+                    logging.warning(f"No blob_url for plan {plan['id']}, skipping")
+
+        zip_bytes = zip_buffer.getvalue()
+
+        return func.HttpResponse(
+            body=zip_bytes,
+            status_code=200,
+            mimetype="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename=terraform-plans-export.zip"
+            }
+        )
+
+    except Exception as e:
+        logging.error(f"Export plans error: {e}")
+        return func.HttpResponse(f"Error: {e}", status_code=500)
