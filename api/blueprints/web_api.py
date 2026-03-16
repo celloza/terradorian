@@ -223,42 +223,57 @@ def list_plans(req: func.HttpRequest) -> func.HttpResponse:
     try:
         container = get_container("plans", "/id")
         
-        query = "SELECT c.id, c.project_id, c.component_name, c.component_id, c.environment, c.branch, c.timestamp, c.terraform_version, c.providers, c.cloud_platform, c.dependencies, c.resource_graph, {'resource_changes': c.terraform_plan.resource_changes} AS terraform_plan FROM c"
-        where_clauses = []
-        parameters = []
-        
-        if project_id:
-            where_clauses.append("c.project_id = @pid")
-            parameters.append({"name": "@pid", "value": project_id})
-            
-        if environment:
-            where_clauses.append("c.environment = @env")
-            parameters.append({"name": "@env", "value": environment})
+        select_fields = "c.id, c.project_id, c.component_name, c.component_id, c.environment, c.branch, c.timestamp, c.terraform_version, c.providers, c.cloud_platform, c.dependencies, c.resource_graph, {'resource_changes': c.terraform_plan.resource_changes} AS terraform_plan"
 
+        # If filtering to a single component, simple query with limit
         if component_id:
-            where_clauses.append("c.component_id = @cid")
-            parameters.append({"name": "@cid", "value": component_id})
-            
+            where_clauses = ["c.component_id = @cid", "(NOT IS_DEFINED(c.is_pending_approval) OR c.is_pending_approval = false)"]
+            parameters = [{"name": "@cid", "value": component_id}]
+            if project_id:
+                where_clauses.append("c.project_id = @pid")
+                parameters.append({"name": "@pid", "value": project_id})
+            if environment:
+                where_clauses.append("c.environment = @env")
+                parameters.append({"name": "@env", "value": environment})
+            if branch:
+                where_clauses.append("c.branch = @branch")
+                parameters.append({"name": "@branch", "value": branch})
+
+            query = f"SELECT {select_fields} FROM c WHERE {' AND '.join(where_clauses)} ORDER BY c.timestamp DESC OFFSET 0 LIMIT 50"
+            items = list(container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
+            return func.HttpResponse(body=json.dumps(items), status_code=200, mimetype="application/json")
+
+        # Otherwise, find distinct components then fetch latest 50 per component
+        comp_where = ["(NOT IS_DEFINED(c.is_pending_approval) OR c.is_pending_approval = false)"]
+        comp_params = []
+        if project_id:
+            comp_where.append("c.project_id = @pid")
+            comp_params.append({"name": "@pid", "value": project_id})
+        if environment:
+            comp_where.append("c.environment = @env")
+            comp_params.append({"name": "@env", "value": environment})
         if branch:
-            where_clauses.append("c.branch = @branch")
-            parameters.append({"name": "@branch", "value": branch})
-            
-        base_where = "(NOT IS_DEFINED(c.is_pending_approval) OR c.is_pending_approval = false)"
-        if where_clauses:
-            query += " WHERE " + base_where + " AND " + " AND ".join(where_clauses)
-        else:
-            query += " WHERE " + base_where
-            
-        query += " ORDER BY c.timestamp DESC OFFSET 0 LIMIT 100"
-            
-        items = list(container.query_items(
-            query=query,
-            parameters=parameters,
-            enable_cross_partition_query=True
-        ))
+            comp_where.append("c.branch = @branch")
+            comp_params.append({"name": "@branch", "value": branch})
+
+        comp_query = f"SELECT DISTINCT VALUE c.component_id FROM c WHERE {' AND '.join(comp_where)}"
+        component_ids = list(container.query_items(query=comp_query, parameters=comp_params, enable_cross_partition_query=True))
+
+        all_items = []
+        for cid in component_ids:
+            if not cid:
+                continue
+            per_comp_where = comp_where + ["c.component_id = @cid"]
+            per_comp_params = comp_params + [{"name": "@cid", "value": cid}]
+            per_comp_query = f"SELECT {select_fields} FROM c WHERE {' AND '.join(per_comp_where)} ORDER BY c.timestamp DESC OFFSET 0 LIMIT 50"
+            items = list(container.query_items(query=per_comp_query, parameters=per_comp_params, enable_cross_partition_query=True))
+            all_items.extend(items)
+
+        # Sort combined results newest first
+        all_items.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
         
         return func.HttpResponse(
-            body=json.dumps(items),
+            body=json.dumps(all_items),
             status_code=200,
             mimetype="application/json"
         )
