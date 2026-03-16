@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
-import { Trash2, Network, History, EyeOff, Eye, Loader2, Download } from "lucide-react";
+import { Trash2, Network, History, EyeOff, Eye, Loader2, Download, AlertTriangle } from "lucide-react";
 import { PlanViewer } from "@/components/plan-viewer";
 import { getPlan } from "@/lib/api";
 import { groupEnvironments } from "@/lib/utils";
@@ -78,6 +78,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const [viewLoading, setViewLoading] = useState(false)
     const [fullPlan, setFullPlan] = useState<any>(null)
     const [exporting, setExporting] = useState(false)
+    const [exportOpen, setExportOpen] = useState(false)
 
     const handleDelete = async () => {
         if (!planToDelete) return
@@ -167,28 +168,10 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                     </Select>
                     <Button
                         variant="outline"
-                        disabled={exporting || !filteredPlans?.length}
-                        onClick={async () => {
-                            setExporting(true)
-                            try {
-                                const blob = await exportPlans(id, targetEnvs, branch)
-                                const url = URL.createObjectURL(blob)
-                                const a = document.createElement('a')
-                                a.href = url
-                                a.download = `terraform-plans-${targetEnvs.join('-')}-${branch}.zip`
-                                document.body.appendChild(a)
-                                a.click()
-                                a.remove()
-                                URL.revokeObjectURL(url)
-                                toast.success('Plans exported successfully')
-                            } catch (e: unknown) {
-                                toast.error(e instanceof Error ? e.message : 'Failed to export plans')
-                            } finally {
-                                setExporting(false)
-                            }
-                        }}
+                        disabled={!filteredPlans?.length}
+                        onClick={() => setExportOpen(true)}
                     >
-                        {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                        <Download className="mr-2 h-4 w-4" />
                         Export Plans
                     </Button>
                     <Button variant="outline" asChild>
@@ -321,6 +304,62 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
                         <Button variant="destructive" onClick={handleDelete}>Delete Plan</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Export Confirmation Dialog */}
+            <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-amber-500" />
+                            Export Terraform Plans
+                        </DialogTitle>
+                        <DialogDescription asChild>
+                            <div className="space-y-3 pt-2">
+                                <p>
+                                    Terraform plan files may contain <strong className="text-foreground">sensitive information</strong> such as
+                                    resource IDs, IP addresses, passwords, connection strings, and other secrets embedded in your infrastructure state.
+                                </p>
+                                <p>
+                                    Please ensure you handle the exported files securely and only share them with trusted parties.
+                                </p>
+                                <div className="rounded-md bg-muted px-3 py-2 text-sm">
+                                    <span className="text-muted-foreground">Branch:</span>{" "}
+                                    <Badge variant="secondary" className="font-mono text-xs">{branch}</Badge>
+                                </div>
+                            </div>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setExportOpen(false)}>Cancel</Button>
+                        <Button
+                            disabled={exporting}
+                            onClick={async () => {
+                                setExporting(true)
+                                try {
+                                    const blob = await exportPlans(id, targetEnvs, branch)
+                                    const url = URL.createObjectURL(blob)
+                                    const a = document.createElement('a')
+                                    a.href = url
+                                    a.download = `terraform-plans-${targetEnvs.join('-')}-${branch}.zip`
+                                    document.body.appendChild(a)
+                                    a.click()
+                                    a.remove()
+                                    URL.revokeObjectURL(url)
+                                    toast.success('Plans exported successfully')
+                                    setExportOpen(false)
+                                } catch (e: unknown) {
+                                    toast.error(e instanceof Error ? e.message : 'Failed to export plans')
+                                } finally {
+                                    setExporting(false)
+                                }
+                            }}
+                        >
+                            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                            Download
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
