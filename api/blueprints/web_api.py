@@ -659,7 +659,7 @@ def export_plans(req: func.HttpRequest) -> func.HttpResponse:
             where_clauses.append("c.branch = @branch")
             parameters.append({"name": "@branch", "value": branch})
 
-        query = f"SELECT c.id, c.component_id, c.component_name, c.environment, c.timestamp, c.blob_url FROM c WHERE {' AND '.join(where_clauses)} ORDER BY c.timestamp DESC"
+        query = f"SELECT c.id, c.component_id, c.component_name, c.environment, c.timestamp, c.blob_url, c.resource_graph FROM c WHERE {' AND '.join(where_clauses)} ORDER BY c.timestamp DESC"
 
         items = list(container.query_items(
             query=query,
@@ -697,6 +697,35 @@ def export_plans(req: func.HttpRequest) -> func.HttpResponse:
                         logging.warning(f"Blob not found for plan {plan['id']}, skipping")
                 else:
                     logging.warning(f"No blob_url for plan {plan['id']}, skipping")
+
+                # Generate .dot graph file from resource_graph
+                graph = plan.get('resource_graph')
+                if graph and graph.get('nodes'):
+                    dot_lines = [f'digraph "{comp_name} ({env})" {{', '  rankdir = "LR";']
+                    # Group nodes by type for subgraph clustering
+                    groups: dict[str, list] = {}
+                    for node in graph['nodes']:
+                        g = node.get('group') or node.get('type') or 'other'
+                        groups.setdefault(g, []).append(node)
+                    for idx, (group_name, nodes) in enumerate(sorted(groups.items())):
+                        dot_lines.append(f'  subgraph "cluster_{idx}" {{')
+                        dot_lines.append(f'    label = "{group_name}";')
+                        for node in nodes:
+                            node_id = node['id'].replace('"', '\\"')
+                            label = node.get('label', node['id']).replace('"', '\\"')
+                            dot_lines.append(f'    "{node_id}" [label="{label}"];')
+                        dot_lines.append('  }')
+                    # Deduplicate edges
+                    seen_edges: set[tuple[str, str]] = set()
+                    for edge in graph.get('edges', []):
+                        pair = (edge['source'], edge['target'])
+                        if pair not in seen_edges:
+                            seen_edges.add(pair)
+                            src = edge['source'].replace('"', '\\"')
+                            tgt = edge['target'].replace('"', '\\"')
+                            dot_lines.append(f'  "{src}" -> "{tgt}";')
+                    dot_lines.append('}')
+                    zf.writestr(f"{safe_name}_{safe_env}.dot", '\n'.join(dot_lines))
 
         zip_bytes = zip_buffer.getvalue()
 
