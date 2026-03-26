@@ -297,7 +297,8 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
         })
 
         return {
-            ts: new Date(plan.timestamp).getTime(),
+            label: new Date(plan.timestamp).toLocaleDateString(),
+            fullDate: new Date(plan.timestamp).toLocaleString(),
             total: agg.total,
             create: agg.create,
             delete: agg.del,
@@ -307,9 +308,6 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
         }
     })
 
-    const formatDate = (value: number) => new Date(value).toLocaleDateString()
-    const formatDateTime = (label: unknown) => new Date(Number(label)).toLocaleString()
-
     return (
         <div className="w-full h-full">
             <TabsContent value="resource" className="h-full mt-0">
@@ -317,15 +315,11 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                     <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                         <XAxis
-                            dataKey="ts"
-                            type="number"
-                            domain={['dataMin', 'dataMax']}
-                            scale="time"
+                            dataKey="label"
                             stroke="#888888"
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={formatDate}
                         />
                         <YAxis
                             stroke="#888888"
@@ -338,7 +332,7 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                             contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", color: "#fff" }}
                             itemStyle={{ color: "#fff" }}
                             cursor={{ stroke: "#888888" }}
-                            labelFormatter={formatDateTime}
+                            labelFormatter={(_label: unknown, payload: readonly any[]) => payload?.[0]?.payload?.fullDate || String(_label)}
                         />
 
                         {/* Resource Lines (Dotted) */}
@@ -368,15 +362,11 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                     <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                         <XAxis
-                            dataKey="ts"
-                            type="number"
-                            domain={['dataMin', 'dataMax']}
-                            scale="time"
+                            dataKey="label"
                             stroke="#888888"
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={formatDate}
                         />
                         <YAxis
                             stroke="#888888"
@@ -389,7 +379,7 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                             contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", color: "#fff" }}
                             itemStyle={{ color: "#fff" }}
                             cursor={{ stroke: "#888888" }}
-                            labelFormatter={formatDateTime}
+                            labelFormatter={(_label: unknown, payload: readonly any[]) => payload?.[0]?.payload?.fullDate || String(_label)}
                         />
 
                         {/* Component Lines */}
