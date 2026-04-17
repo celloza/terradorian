@@ -184,6 +184,16 @@ export const deleteAllPlans = async (project_id: string) => {
     return res.json();
 };
 
+export const deleteBranchPlans = async (project_id: string, branch: string) => {
+    const res = await fetch(`${API_BASE}/delete_branch_plans`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id, branch }),
+    });
+    if (!res.ok) throw new Error("Failed to delete branch plans");
+    return res.json();
+};
+
 export const exportPlans = async (project_id: string, environments: string[], branch?: string) => {
     let url = `${API_BASE}/export_plans?project_id=${project_id}&environment=${environments.join(',')}`;
     if (branch) {

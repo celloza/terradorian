@@ -453,6 +453,54 @@ def delete_environment(req: func.HttpRequest) -> func.HttpResponse:
     except Exception as e:
         return func.HttpResponse(f"Error: {e}", status_code=500)
 
+@bp.route(route="delete_branch_plans", auth_level=func.AuthLevel.ANONYMOUS, methods=["DELETE"])
+def delete_branch_plans(req: func.HttpRequest) -> func.HttpResponse:
+    """Delete all plans for a specific branch within a project."""
+    import logging
+    from shared.storage import delete_plan_blob
+
+    try:
+        req_body = req.get_json()
+        project_id = req_body.get('project_id')
+        branch = req_body.get('branch')
+    except ValueError:
+        return func.HttpResponse("Invalid JSON", status_code=400)
+
+    if not project_id or not branch:
+        return func.HttpResponse("project_id and branch required", status_code=400)
+
+    try:
+        plans_container = get_container("plans", "/id")
+        plans = list(plans_container.query_items(
+            query="SELECT c.id, c.blob_url FROM c WHERE c.project_id = @pid AND c.branch = @branch",
+            parameters=[
+                {"name": "@pid", "value": project_id},
+                {"name": "@branch", "value": branch}
+            ],
+            enable_cross_partition_query=True
+        ))
+
+        deleted_count = 0
+        for plan in plans:
+            blob_url = plan.get("blob_url")
+            if blob_url:
+                delete_plan_blob(blob_url)
+            try:
+                plans_container.delete_item(item=plan['id'], partition_key=plan['id'])
+                deleted_count += 1
+            except exceptions.CosmosResourceNotFoundError:
+                continue
+
+        return func.HttpResponse(
+            body=json.dumps({"message": f"Deleted {deleted_count} plans for branch '{branch}'.", "deleted_count": deleted_count}),
+            status_code=200,
+            mimetype="application/json"
+        )
+
+    except Exception as e:
+        logging.error(f"Error deleting branch plans: {e}")
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
 @bp.route(route="update_project_settings", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
 def update_project_settings(req: func.HttpRequest) -> func.HttpResponse:
     try:

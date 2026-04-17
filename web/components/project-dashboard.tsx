@@ -308,6 +308,14 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
         }
     })
 
+    // Deduplicate consecutive identical labels so tick labels don't repeat
+    const tickFormatter = (_value: unknown, index: number) => {
+        const item = data[index];
+        if (!item) return '';
+        if (index > 0 && data[index - 1]?.label === item.label) return '';
+        return item.label;
+    }
+
     return (
         <div className="w-full h-full">
             <TabsContent value="resource" className="h-full mt-0">
@@ -315,11 +323,11 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                     <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                         <XAxis
-                            dataKey="label"
                             stroke="#888888"
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
+                            tickFormatter={tickFormatter}
                         />
                         <YAxis
                             stroke="#888888"
@@ -362,11 +370,11 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                     <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                         <XAxis
-                            dataKey="label"
                             stroke="#888888"
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
+                            tickFormatter={tickFormatter}
                         />
                         <YAxis
                             stroke="#888888"

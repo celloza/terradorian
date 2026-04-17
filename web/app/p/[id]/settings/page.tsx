@@ -3,7 +3,7 @@
 import { useState, use } from "react"
 import useSWR from "swr"
 import { useRouter } from "next/navigation"
-import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion, deleteAllPlans } from "@/lib/api"
+import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion, deleteAllPlans, deleteBranchPlans } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2, Settings, Check, Loader2, History } from "lucide-react"
+import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2, Settings, Check, Loader2, History, GitBranch } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
@@ -32,6 +32,12 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     const [isDeletingAll, setIsDeletingAll] = useState(false)
     const [confirmDeleteAllName, setConfirmDeleteAllName] = useState("")
     const [deleteAllLoading, setDeleteAllLoading] = useState(false)
+
+    // Delete Branch State
+    const [isDeletingBranch, setIsDeletingBranch] = useState(false)
+    const [branchToDelete, setBranchToDelete] = useState("")
+    const [confirmBranchDelete, setConfirmBranchDelete] = useState("")
+    const [deleteBranchLoading, setDeleteBranchLoading] = useState(false)
 
     // Notifications State
     const [settingsLoading, setSettingsLoading] = useState(false)
@@ -163,6 +169,24 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
             toast.error("Failed to delete all ingestions.")
         } finally {
             setDeleteAllLoading(false)
+        }
+    }
+
+    const handleDeleteBranchPlans = async () => {
+        if (!project || !branchToDelete.trim() || confirmBranchDelete !== branchToDelete) return
+
+        setDeleteBranchLoading(true)
+        try {
+            const result = await deleteBranchPlans(id, branchToDelete.trim())
+            toast.success(result.message || `Deleted plans for branch '${branchToDelete}'.`)
+            setBranchToDelete("")
+            setConfirmBranchDelete("")
+            setIsDeletingBranch(false)
+            window.location.reload()
+        } catch (e) {
+            toast.error("Failed to delete branch plans.")
+        } finally {
+            setDeleteBranchLoading(false)
         }
     }
 
@@ -634,6 +658,18 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                 <CardContent>
                     <div className="flex items-center justify-between border-b border-red-200/50 pb-4 mb-4">
                         <div>
+                            <h4 className="font-medium text-red-900">Delete Branch Ingestions</h4>
+                            <p className="text-sm text-red-700/70">
+                                Delete all Terraform plans for a specific branch.
+                            </p>
+                        </div>
+                        <Button variant="destructive" onClick={() => setIsDeletingBranch(true)}>
+                            <GitBranch className="mr-2 h-4 w-4" /> Delete Branch Plans
+                        </Button>
+                    </div>
+
+                    <div className="flex items-center justify-between border-b border-red-200/50 pb-4 mb-4">
+                        <div>
                             <h4 className="font-medium text-red-900">Delete All Ingestions</h4>
                             <p className="text-sm text-red-700/70">
                                 Permanently wipe out all Terraform plans and blob payloads attached to this project.
@@ -657,6 +693,57 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Delete Branch Confirmation Modal */}
+            <Dialog open={isDeletingBranch} onOpenChange={(open) => {
+                if (!open) { setBranchToDelete(""); setConfirmBranchDelete("") }
+                setIsDeletingBranch(open)
+            }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete all plans for a branch?</DialogTitle>
+                        <DialogDescription>
+                            This will permanently delete all Terraform plan documents and blob payloads
+                            for the specified branch in project
+                            <span className="font-semibold text-foreground mx-1">{project?.name}</span>.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-4 space-y-4">
+                        <div className="space-y-2">
+                            <Label>Branch name</Label>
+                            <Input
+                                value={branchToDelete}
+                                onChange={(e) => setBranchToDelete(e.target.value)}
+                                placeholder="e.g. feature/my-branch"
+                                className="font-mono"
+                            />
+                        </div>
+                        {branchToDelete.trim() && (
+                            <div className="space-y-2">
+                                <Label>Type <span className="font-mono text-xs border rounded px-1.5 py-0.5 bg-zinc-100">{branchToDelete.trim()}</span> to confirm</Label>
+                                <Input
+                                    value={confirmBranchDelete}
+                                    onChange={(e) => setConfirmBranchDelete(e.target.value)}
+                                    placeholder={branchToDelete.trim()}
+                                    className="font-mono bg-red-50"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDeletingBranch(false)}>Cancel</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleDeleteBranchPlans}
+                            disabled={!branchToDelete.trim() || confirmBranchDelete !== branchToDelete.trim() || deleteBranchLoading}
+                        >
+                            {deleteBranchLoading ? "Deleting..." : "Delete branch plans"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete All Ingestions Confirmation Modal */}
             <Dialog open={isDeletingAll} onOpenChange={(open) => {
