@@ -496,7 +496,8 @@ def manual_ingest(req: func.HttpRequest) -> func.HttpResponse:
         notifications = project_doc.get('notifications', {})
         slack_settings = notifications.get('slack', {})
         
-        if slack_settings.get('enabled') and slack_settings.get('webhook_url'):
+        default_branch = project_doc.get('default_branch', 'develop')
+        if slack_settings.get('enabled') and slack_settings.get('webhook_url') and doc_dict.get('branch') == default_branch:
             # Calculate current changes
             curr_changes = 0
             if 'resource_changes' in doc_dict['terraform_plan']:
