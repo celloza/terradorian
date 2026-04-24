@@ -31,8 +31,8 @@ def create_project(req: func.HttpRequest) -> func.HttpResponse:
         container = get_container("projects", "/id")
         container.create_item(doc_dict)
     except Exception as e:
-         return func.HttpResponse(f"Error creating project: {e}", status_code=500)
-         
+        return func.HttpResponse(f"Error creating project: {e}", status_code=500)
+
     return func.HttpResponse(
         body=json.dumps({"id": doc_dict['id'], "name": doc_dict['name']}),
         status_code=201,
@@ -46,7 +46,7 @@ def add_environment(req: func.HttpRequest) -> func.HttpResponse:
         project_id = req_body.get('project_id')
         environment = req_body.get('environment')
         if not project_id or not environment:
-             return func.HttpResponse("Missing project_id or environment", status_code=400)
+            return func.HttpResponse("Missing project_id or environment", status_code=400)
     except ValueError:
         return func.HttpResponse("Invalid JSON", status_code=400)
 
@@ -89,8 +89,8 @@ def create_component(req: func.HttpRequest) -> func.HttpResponse:
         container = get_container("components", "/id")
         container.create_item(doc_dict)
     except Exception as e:
-         return func.HttpResponse(f"Error creating component: {e}", status_code=500)
-         
+        return func.HttpResponse(f"Error creating component: {e}", status_code=500)
+
     return func.HttpResponse(
         body=json.dumps({"id": doc_dict['id'], "name": doc_dict['name']}),
         status_code=201,
@@ -347,8 +347,8 @@ def revoke_token(req: func.HttpRequest) -> func.HttpResponse:
         new_tokens = [t for t in tokens if t["id"] != token_id]
         
         if len(new_tokens) == len(tokens):
-             return func.HttpResponse("Token not found", status_code=404)
-             
+            return func.HttpResponse("Token not found", status_code=404)
+
         proj_doc['tokens'] = new_tokens
         container.upsert_item(proj_doc)
         
@@ -427,7 +427,7 @@ def delete_environment(req: func.HttpRequest) -> func.HttpResponse:
             project_doc['environments'] = new_envs
             proj_container.upsert_item(project_doc)
         else:
-             return func.HttpResponse("Environment not found in project", status_code=404)
+            return func.HttpResponse("Environment not found in project", status_code=404)
 
         # 2. Cascade Delete Plans
         plans_container = get_container("plans", "/id")
@@ -501,6 +501,43 @@ def delete_branch_plans(req: func.HttpRequest) -> func.HttpResponse:
         logging.error(f"Error deleting branch plans: {e}")
         return func.HttpResponse(f"Error: {e}", status_code=500)
 
+@bp.route(route="test_slack_notification", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def test_slack_notification(req: func.HttpRequest) -> func.HttpResponse:
+    """Send a test message to the configured Slack webhook."""
+    import logging
+    from shared.notifications import send_slack_test
+
+    try:
+        req_body = req.get_json()
+        project_id = req_body.get('project_id')
+        webhook_url = req_body.get('webhook_url')
+    except ValueError:
+        return func.HttpResponse("Invalid JSON", status_code=400)
+
+    if not project_id or not webhook_url:
+        return func.HttpResponse("project_id and webhook_url required", status_code=400)
+
+    try:
+        proj_container = get_container("projects", "/id")
+        project_doc = proj_container.read_item(item=project_id, partition_key=project_id)
+        project_name = project_doc.get('name', 'Unknown Project')
+
+        success = send_slack_test(webhook_url, project_name)
+        if success:
+            return func.HttpResponse(
+                body=json.dumps({"message": "Test notification sent successfully"}),
+                status_code=200,
+                mimetype="application/json"
+            )
+        else:
+            return func.HttpResponse("Failed to send test notification. Check the webhook URL.", status_code=400)
+
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Project not found", status_code=404)
+    except Exception as e:
+        logging.error(f"Test slack notification error: {e}")
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
 @bp.route(route="update_project_settings", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
 def update_project_settings(req: func.HttpRequest) -> func.HttpResponse:
     try:
@@ -516,11 +553,11 @@ def update_project_settings(req: func.HttpRequest) -> func.HttpResponse:
         
         # Update Fields
         if settings_data.description is not None:
-             project_doc['description'] = settings_data.description
-             
+            project_doc['description'] = settings_data.description
+
         if settings_data.environments is not None:
-             project_doc['environments'] = settings_data.environments
-             
+            project_doc['environments'] = settings_data.environments
+
         if settings_data.notifications:
             # We dump the notifications model to dict. 
             # Note: This replaces the entire notifications object. Partial updates would require deeper merging logic.
@@ -528,10 +565,10 @@ def update_project_settings(req: func.HttpRequest) -> func.HttpResponse:
             project_doc['notifications'] = settings_data.notifications.model_dump()
 
         if settings_data.environments_config is not None:
-             project_doc['environments_config'] = settings_data.environments_config
+            project_doc['environments_config'] = settings_data.environments_config
 
         if settings_data.default_branch is not None:
-             project_doc['default_branch'] = settings_data.default_branch
+            project_doc['default_branch'] = settings_data.default_branch
 
         container.upsert_item(project_doc)
         

@@ -206,3 +206,16 @@ export const exportPlans = async (project_id: string, environments: string[], br
     }
     return res.blob();
 };
+
+export const testSlackNotification = async (project_id: string, webhook_url: string) => {
+    const res = await fetch(`${API_BASE}/test_slack_notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id, webhook_url }),
+    });
+    if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to send test notification");
+    }
+    return res.json();
+};

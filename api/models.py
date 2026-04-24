@@ -50,9 +50,17 @@ class AuthSettingsSchema(BaseModel):
     client_secret: str
     tenant_id: str
 
+class SlackSchedule(BaseModel):
+    day: str = "Monday"
+    time: str = "09:00" # UTC
+
 class SlackSettings(BaseModel):
     enabled: bool = False
     webhook_url: str | None = None
+    weekly_report: bool = False
+    schedule: SlackSchedule = SlackSchedule()
+    stale_alerts: bool = False
+    stale_threshold_days: int = 7
 
 class EmailSchedule(BaseModel):
     day: str = "Monday"

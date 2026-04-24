@@ -87,3 +87,84 @@ def send_slack_alert(webhook_url: str, project_name: str, component_name: str, e
             logging.info(f"Slack notification sent for {component_name}")
     except Exception as e:
         logging.error(f"Error sending Slack notification: {e}")
+
+
+def send_slack_test(webhook_url: str, project_name: str) -> bool:
+    """Sends a test message to verify the Slack webhook is working."""
+    if not webhook_url:
+        return False
+
+    payload = {
+        "blocks": [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f":white_check_mark: *Terradorian Test Notification*\nSlack integration for *{project_name}* is working correctly."
+                }
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(webhook_url, json=payload, timeout=5)
+        return response.status_code == 200
+    except Exception as e:
+        logging.error(f"Error sending Slack test: {e}")
+        return False
+
+
+def send_slack_blocks(webhook_url: str, blocks: list) -> bool:
+    """Posts a pre-built Block Kit payload to a Slack webhook."""
+    if not webhook_url:
+        return False
+
+    try:
+        response = requests.post(webhook_url, json={"blocks": blocks}, timeout=10)
+        if response.status_code != 200:
+            logging.error(f"Slack blocks post failed: {response.status_code} - {response.text}")
+            return False
+        return True
+    except Exception as e:
+        logging.error(f"Error posting Slack blocks: {e}")
+        return False
+
+
+def send_slack_stale_alert(webhook_url: str, project_name: str, stale_items: list[dict]) -> bool:
+    """Sends a Slack alert listing stale component/environment combinations."""
+    if not webhook_url or not stale_items:
+        return False
+
+    lines = []
+    for item in stale_items:
+        days = item.get('days_old', 0)
+        lines.append(f"• *{item['component']}* ({item['environment']}) — last updated {days}d ago")
+
+    payload = {
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": f"⏰ Stale Plans Detected: {project_name}"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"The following plans haven't been refreshed and may be outdated:\n\n" + "\n".join(lines)
+                }
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(webhook_url, json=payload, timeout=5)
+        if response.status_code != 200:
+            logging.error(f"Slack stale alert failed: {response.status_code} - {response.text}")
+            return False
+        return True
+    except Exception as e:
+        logging.error(f"Error sending stale alert: {e}")
+        return False

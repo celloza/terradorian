@@ -3,7 +3,7 @@
 import { useState, use } from "react"
 import useSWR from "swr"
 import { useRouter } from "next/navigation"
-import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion, deleteAllPlans, deleteBranchPlans } from "@/lib/api"
+import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion, deleteAllPlans, deleteBranchPlans, testSlackNotification } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2, Settings, Check, Loader2, History, GitBranch } from "lucide-react"
+import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2, Settings, Check, Loader2, History, GitBranch, Send, Clock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
@@ -41,8 +41,9 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
 
     // Notifications State
     const [settingsLoading, setSettingsLoading] = useState(false)
+    const [testingSlack, setTestingSlack] = useState(false)
     const [notifState, setNotifState] = useState<any>({
-        slack: { enabled: false, webhook_url: "" },
+        slack: { enabled: false, webhook_url: "", weekly_report: false, schedule: { day: "Monday", time: "09:00" }, stale_alerts: false, stale_threshold_days: 7 },
         email: {
             enabled: false,
             recipients: [],
@@ -310,14 +311,115 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                             />
                         </div>
                         {notifState.slack.enabled && (
-                            <div className="ml-7 space-y-2">
-                                <Label>Webhook URL</Label>
-                                <Input
-                                    placeholder="https://hooks.slack.com/services/..."
-                                    value={notifState.slack.webhook_url || ""}
-                                    onChange={(e) => updateNested(['slack', 'webhook_url'], e.target.value)}
-                                />
-                                <p className="text-xs text-muted-foreground">Alerts will be sent here when drift is detected.</p>
+                            <div className="ml-7 space-y-4">
+                                <div className="space-y-2">
+                                    <Label>Webhook URL</Label>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            className="flex-1"
+                                            placeholder="https://hooks.slack.com/services/..."
+                                            value={notifState.slack.webhook_url || ""}
+                                            onChange={(e) => updateNested(['slack', 'webhook_url'], e.target.value)}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={testingSlack || !notifState.slack.webhook_url}
+                                            onClick={async () => {
+                                                setTestingSlack(true)
+                                                try {
+                                                    await testSlackNotification(id, notifState.slack.webhook_url)
+                                                    toast.success("Test notification sent!")
+                                                } catch (err: any) {
+                                                    toast.error(err.message || "Failed to send test notification")
+                                                } finally {
+                                                    setTestingSlack(false)
+                                                }
+                                            }}
+                                        >
+                                            {testingSlack ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                            <span className="ml-1">Test</span>
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">Alerts will be sent here when drift is detected.</p>
+                                </div>
+
+                                {/* Weekly Report */}
+                                <div className="space-y-3 border-t pt-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                            <Clock className="h-4 w-4 text-zinc-400" />
+                                            <Label htmlFor="slack-weekly" className="text-sm font-medium">Weekly Report</Label>
+                                        </div>
+                                        <Switch
+                                            id="slack-weekly"
+                                            checked={notifState.slack.weekly_report || false}
+                                            onCheckedChange={(c) => updateNested(['slack', 'weekly_report'], c)}
+                                        />
+                                    </div>
+                                    {notifState.slack.weekly_report && (
+                                        <div className="grid grid-cols-2 gap-4 ml-6">
+                                            <div className="space-y-2">
+                                                <Label>Report Day</Label>
+                                                <Select
+                                                    value={notifState.slack.schedule?.day || "Monday"}
+                                                    onValueChange={(v) => updateNested(['slack', 'schedule', 'day'], v)}
+                                                >
+                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(d => (
+                                                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Time (UTC)</Label>
+                                                <Select
+                                                    value={notifState.slack.schedule?.time || "09:00"}
+                                                    onValueChange={(v) => updateNested(['slack', 'schedule', 'time'], v)}
+                                                >
+                                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {Array.from({ length: 24 }).map((_, i) => {
+                                                            const t = `${i.toString().padStart(2, '0')}:00`
+                                                            return <SelectItem key={t} value={t}>{t}</SelectItem>
+                                                        })}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Stale Plan Alerts */}
+                                <div className="space-y-3 border-t pt-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                            <History className="h-4 w-4 text-zinc-400" />
+                                            <Label htmlFor="slack-stale" className="text-sm font-medium">Stale Plan Alerts</Label>
+                                        </div>
+                                        <Switch
+                                            id="slack-stale"
+                                            checked={notifState.slack.stale_alerts || false}
+                                            onCheckedChange={(c) => updateNested(['slack', 'stale_alerts'], c)}
+                                        />
+                                    </div>
+                                    {notifState.slack.stale_alerts && (
+                                        <div className="ml-6 space-y-2">
+                                            <Label>Threshold (days)</Label>
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                max={90}
+                                                className="w-24"
+                                                value={notifState.slack.stale_threshold_days || 7}
+                                                onChange={(e) => updateNested(['slack', 'stale_threshold_days'], parseInt(e.target.value) || 7)}
+                                            />
+                                            <p className="text-xs text-muted-foreground">Alert when a plan hasn&apos;t been refreshed in this many days.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
