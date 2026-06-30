@@ -44,9 +44,13 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
 
     const branchQuery = searchParams.get("branch")
     const branch = branchQuery || activeProject?.default_branch || "develop"
+    const allowedRanges = ["7", "14", "30", "90", "180", "365", "all"]
+    const rawRangeQuery = searchParams.get("range") || "7"
+    const rangeQuery = allowedRanges.includes(rawRangeQuery) ? rawRangeQuery : "7"
+    const daysRange: number | "all" = rangeQuery === "all" ? "all" : Number.parseInt(rangeQuery, 10)
 
     const { data: components, mutate: mutateComponents } = useSWR(() => `/list_components?project_id=${projectId}`, fetcher)
-    const { data: allPlans, mutate } = useSWR(() => `/list_plans?project_id=${projectId}`, fetcher)
+    const { data: allPlans, mutate } = useSWR(() => listPlans(projectId, undefined, undefined, undefined, daysRange), fetcher)
     const { data: pendingIngestions } = useSWR(() => `/list_pending_ingestions?project_id=${projectId}`, fetcher)
     const filteredPlans = allPlans?.filter((p: any) => p.branch === branch)
 
@@ -59,6 +63,13 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
         if (!newBranch) return;
         const newParams = new URLSearchParams(searchParams.toString())
         newParams.set("branch", newBranch)
+        router.push(`${pathname}?${newParams.toString()}`)
+    }
+
+    const handleRangeFilter = (newRange: string) => {
+        if (!newRange) return;
+        const newParams = new URLSearchParams(searchParams.toString())
+        newParams.set("range", newRange)
         router.push(`${pathname}?${newParams.toString()}`)
     }
 
@@ -201,6 +212,23 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
                     <h2 className="text-lg font-semibold tracking-tight">Infrastructure State</h2>
                     <div className="flex items-center gap-4">
+                        <Select
+                            value={rangeQuery}
+                            onValueChange={(val) => handleRangeFilter(val)}
+                        >
+                            <SelectTrigger className="w-44 bg-white h-9">
+                                <SelectValue placeholder="Date range..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="7">Last 7 days</SelectItem>
+                                <SelectItem value="14">Last 14 days</SelectItem>
+                                <SelectItem value="30">Last 30 days</SelectItem>
+                                <SelectItem value="90">Last 90 days</SelectItem>
+                                <SelectItem value="180">Last 180 days</SelectItem>
+                                <SelectItem value="365">Last 365 days</SelectItem>
+                                <SelectItem value="all">All time</SelectItem>
+                            </SelectContent>
+                        </Select>
                         <Select
                             value={branch}
                             onValueChange={(val) => handleBranchFilter(val)}

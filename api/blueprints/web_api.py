@@ -3,7 +3,7 @@ import json
 import uuid
 import secrets
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from azure.cosmos import exceptions
 from pydantic import ValidationError
 from models import CreateProjectSchema, CreateComponentSchema, UpdateProjectSettingsSchema, UpdateComponentSchema, ApproveIngestionSchema, RejectIngestionSchema
@@ -219,6 +219,21 @@ def list_plans(req: func.HttpRequest) -> func.HttpResponse:
     component_id = req.params.get('component_id')
     environment = req.params.get('environment')
     branch = req.params.get('branch')
+    days_param = req.params.get('days', '7')
+
+    # Keep responses bounded by default for large projects.
+    filter_by_days = True
+    start_timestamp = None
+    if days_param and days_param.lower() == 'all':
+        filter_by_days = False
+    else:
+        try:
+            days = int(days_param)
+            if days <= 0:
+                return func.HttpResponse("days must be a positive integer or 'all'", status_code=400)
+            start_timestamp = (datetime.now(timezone.utc) - timedelta(days=days)).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
+        except ValueError:
+            return func.HttpResponse("days must be a positive integer or 'all'", status_code=400)
     
     try:
         container = get_container("plans", "/id")
@@ -238,6 +253,9 @@ def list_plans(req: func.HttpRequest) -> func.HttpResponse:
             if branch:
                 where_clauses.append("c.branch = @branch")
                 parameters.append({"name": "@branch", "value": branch})
+            if filter_by_days and start_timestamp:
+                where_clauses.append("c.timestamp >= @start_ts")
+                parameters.append({"name": "@start_ts", "value": start_timestamp})
 
             query = f"SELECT {select_fields} FROM c WHERE {' AND '.join(where_clauses)} ORDER BY c.timestamp DESC OFFSET 0 LIMIT 50"
             items = list(container.query_items(query=query, parameters=parameters, enable_cross_partition_query=True))
@@ -255,6 +273,9 @@ def list_plans(req: func.HttpRequest) -> func.HttpResponse:
         if branch:
             comp_where.append("c.branch = @branch")
             comp_params.append({"name": "@branch", "value": branch})
+        if filter_by_days and start_timestamp:
+            comp_where.append("c.timestamp >= @start_ts")
+            comp_params.append({"name": "@start_ts", "value": start_timestamp})
 
         comp_query = f"SELECT DISTINCT VALUE c.component_id FROM c WHERE {' AND '.join(comp_where)}"
         component_ids = list(container.query_items(query=comp_query, parameters=comp_params, enable_cross_partition_query=True))

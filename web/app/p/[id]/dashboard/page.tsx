@@ -53,9 +53,13 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
 
     const branchQuery = searchParams.get("branch")
     const branch = branchQuery || project?.default_branch || "develop"
+    const allowedRanges = ["7", "14", "30", "90", "180", "365", "all"]
+    const rawRangeQuery = searchParams.get("range") || "7"
+    const rangeQuery = allowedRanges.includes(rawRangeQuery) ? rawRangeQuery : "7"
+    const daysRange: number | "all" = rangeQuery === "all" ? "all" : Number.parseInt(rangeQuery, 10)
 
     const apiEnv = targetEnvs.length === 1 ? targetEnvs[0] : undefined
-    const { data: allPlans, mutate } = useSWR(listPlans(id, undefined, apiEnv, undefined), fetcher)
+    const { data: allPlans, mutate } = useSWR(listPlans(id, undefined, apiEnv, undefined, daysRange), fetcher)
     const filteredPlans = allPlans?.filter((p: any) => p.branch === branch && targetEnvs.includes(p.environment))
 
     const uniqueBranches = Array.from(new Set(allPlans?.map((p: any) => p.branch) || []))
@@ -70,6 +74,13 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
         router.push(`${pathname}?${newParams.toString()}`)
     }
 
+    const handleRangeFilter = (newRange: string) => {
+        if (!newRange) return;
+        const newParams = new URLSearchParams(searchParams.toString())
+        newParams.set("range", newRange)
+        router.push(`${pathname}?${newParams.toString()}`)
+    }
+
     const [deleteOpen, setDeleteOpen] = useState(false)
     const [planToDelete, setPlanToDelete] = useState<any>(null)
 
@@ -79,6 +90,22 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const [fullPlan, setFullPlan] = useState<any>(null)
     const [exporting, setExporting] = useState(false)
     const [exportOpen, setExportOpen] = useState(false)
+    const [currentPage, setCurrentPage] = useState(1)
+
+    const ITEMS_PER_PAGE = 10
+    const totalPlans = allPlans?.length || 0
+    const totalPages = Math.max(1, Math.ceil(totalPlans / ITEMS_PER_PAGE))
+    const paginatedPlans = allPlans?.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE) || []
+
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [branch, rangeQuery, env, group, region])
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages)
+        }
+    }, [currentPage, totalPages])
 
     const handleDelete = async () => {
         if (!planToDelete) return
@@ -154,6 +181,23 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                 </div>
                 <div className="flex items-center gap-2">
                     <Select
+                        value={rangeQuery}
+                        onValueChange={(val) => handleRangeFilter(val)}
+                    >
+                        <SelectTrigger className="w-44 bg-white h-9">
+                            <SelectValue placeholder="Date range..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="7">Last 7 days</SelectItem>
+                            <SelectItem value="14">Last 14 days</SelectItem>
+                            <SelectItem value="30">Last 30 days</SelectItem>
+                            <SelectItem value="90">Last 90 days</SelectItem>
+                            <SelectItem value="180">Last 180 days</SelectItem>
+                            <SelectItem value="365">Last 365 days</SelectItem>
+                            <SelectItem value="all">All time</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select
                         value={branch}
                         onValueChange={(val) => handleBranchFilter(val)}
                     >
@@ -205,11 +249,11 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                         <TableBody>
                             {!allPlans ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center h-24">Loading...</TableCell>
+                                    <TableCell colSpan={6} className="text-center h-24">Loading...</TableCell>
                                 </TableRow>
                             ) : allPlans.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                                    <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                                         <div className="flex flex-col items-center gap-2">
                                             <EyeOff className="h-6 w-6" />
                                             No drift reports found.
@@ -217,7 +261,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                allPlans.slice(0, 10).map((plan: any) => (
+                                paginatedPlans.map((plan: any) => (
                                     <TableRow key={plan.id}>
                                         <TableCell className="font-medium text-zinc-900">{new Date(plan.timestamp).toLocaleString()}</TableCell>
                                         <TableCell>{plan.component_name || "Unknown"}</TableCell>
@@ -264,6 +308,32 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             )}
                         </TableBody>
                     </Table>
+                    {allPlans && allPlans.length > 0 && (
+                        <div className="flex items-center justify-between border-t px-4 py-3">
+                            <div className="text-sm text-muted-foreground">
+                                Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalPlans)} to {Math.min(currentPage * ITEMS_PER_PAGE, totalPlans)} of {totalPlans}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={currentPage <= 1}
+                                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                                >
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={currentPage >= totalPages}
+                                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

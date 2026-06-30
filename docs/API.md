@@ -36,6 +36,9 @@ Lists plans for a project or component.
     *   `project_id` (optional)
     *   `component_id` (optional)
     *   `env` (optional)
+    *   `days` (optional, default: `7`)
+        *   Positive integer number of trailing days to include.
+        *   Use `all` to disable date filtering.
 *   **Returns**: List of plan metadata objects (without the heavy `resource_changes` payload usually, or a lightweight version).
 
 #### `DELETE /delete_plan/{id}`

@@ -337,6 +337,7 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                             tickFormatter={(value) => `${value}`}
                         />
                         <Tooltip
+                            wrapperStyle={{ zIndex: 50 }}
                             contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", color: "#fff" }}
                             itemStyle={{ color: "#fff" }}
                             cursor={{ stroke: "#888888" }}
@@ -384,6 +385,7 @@ export function DriftChart({ plans, showUnchanged }: { plans: any[], showUnchang
                             tickFormatter={(value) => `${value}`}
                         />
                         <Tooltip
+                            wrapperStyle={{ zIndex: 50 }}
                             contentStyle={{ backgroundColor: "#000", border: "none", borderRadius: "8px", color: "#fff" }}
                             itemStyle={{ color: "#fff" }}
                             cursor={{ stroke: "#888888" }}

@@ -91,7 +91,13 @@ export const manualIngest = async (component_id: string, environment: string, br
     return res.json();
 };
 
-export const listPlans = (project_id: string, component_id?: string, environment?: string, branch?: string) => {
+export const listPlans = (
+    project_id: string,
+    component_id?: string,
+    environment?: string,
+    branch?: string,
+    days?: number | "all"
+) => {
     let url = `/list_plans?project_id=${project_id}`;
     if (component_id) {
         url += `&component_id=${component_id}`;
@@ -101,6 +107,9 @@ export const listPlans = (project_id: string, component_id?: string, environment
     }
     if (branch) {
         url += `&branch=${branch}`;
+    }
+    if (days !== undefined) {
+        url += `&days=${days}`;
     }
     return url;
 };
