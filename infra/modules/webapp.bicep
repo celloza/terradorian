@@ -9,8 +9,11 @@ param internalSecret string
 
 param apiUrl string
 param appInsightsConnectionString string
+param easyAuthTenantId string = ''
+param easyAuthClientId string = ''
 
 var webAppName = 'web-terradorian-${environment}'
+var enableEasyAuth = !empty(easyAuthTenantId) && !empty(easyAuthClientId)
 
 resource webApp 'Microsoft.Web/sites@2022-09-01' = {
   name: webAppName
@@ -75,6 +78,70 @@ resource webApp 'Microsoft.Web/sites@2022-09-01' = {
       healthCheckPath: '/health'
     }
     httpsOnly: true
+  }
+}
+
+resource webAppAuthSettingsV2 'Microsoft.Web/sites/config@2022-09-01' = if (enableEasyAuth) {
+  name: 'authsettingsV2'
+  parent: webApp
+  properties: {
+    platform: {
+      enabled: true
+      runtimeVersion: '~1'
+    }
+    globalValidation: {
+      requireAuthentication: true
+      unauthenticatedClientAction: 'RedirectToLoginPage'
+      redirectToProvider: 'azureactivedirectory'
+    }
+    httpSettings: {
+      requireHttps: true
+      routes: {
+        apiPrefix: '/.auth'
+      }
+      forwardProxy: {
+        convention: 'NoProxy'
+      }
+    }
+    identityProviders: {
+      azureActiveDirectory: {
+        enabled: true
+        registration: {
+          clientId: easyAuthClientId
+          openIdIssuer: '${az.environment().authentication.loginEndpoint}${easyAuthTenantId}/v2.0'
+        }
+        login: {
+          disableWWWAuthenticate: false
+        }
+      }
+      apple: {
+        enabled: false
+      }
+      facebook: {
+        enabled: false
+      }
+      gitHub: {
+        enabled: false
+      }
+      google: {
+        enabled: false
+      }
+      legacyMicrosoftAccount: {
+        enabled: false
+      }
+      twitter: {
+        enabled: false
+      }
+    }
+    login: {
+      preserveUrlFragmentsForLogins: false
+      tokenStore: {
+        enabled: false
+      }
+      routes: {
+        logoutEndpoint: '/.auth/logout'
+      }
+    }
   }
 }
 

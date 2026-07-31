@@ -1,5 +1,7 @@
 param location string = resourceGroup().location
 param environment string = 'dev'
+param easyAuthTenantId string = ''
+param easyAuthClientId string = ''
 param tags object = {
   solution: 'terradorian'
   managedBy: 'bicep'
@@ -120,6 +122,8 @@ module webapp 'modules/webapp.bicep' = {
     internalSecret: internalSecret
     apiUrl: 'https://${function.outputs.functionAppDefaultHostName}/api'
     appInsightsConnectionString: appinsights.outputs.connectionString
+    easyAuthTenantId: easyAuthTenantId
+    easyAuthClientId: easyAuthClientId
   }
 }
 

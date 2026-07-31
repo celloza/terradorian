@@ -5,6 +5,12 @@
         "environment": {
             "value": "dev"
         },
+        "easyAuthTenantId": {
+            "value": "your-tenant-id"
+        },
+        "easyAuthClientId": {
+            "value": "your-entra-app-client-id"
+        },
         "tags": {
             "value": {
                 "owner": "your-name-here",

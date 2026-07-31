@@ -71,8 +71,10 @@ export function TopNavBar({ children }: TopNavBarProps) {
                     <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuLabel>My Account</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                            <User className="mr-2 h-4 w-4" /> Profile
+                        <DropdownMenuItem asChild>
+                            <Link href="/profile" className="cursor-pointer">
+                                <User className="mr-2 h-4 w-4" /> Profile
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link href="/admin/settings" className="cursor-pointer">
