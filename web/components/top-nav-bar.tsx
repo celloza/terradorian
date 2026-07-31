@@ -1,10 +1,12 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import { TerradorianLogo } from "@/components/terradorian-logo"
-import { CircleUser, Bell, HelpCircle, LogOut, Settings, User } from "lucide-react"
+import { CircleUser, Bell, HelpCircle, LogOut, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { signOut } from "next-auth/react"
+import { useSession } from "next-auth/react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -18,9 +20,75 @@ interface TopNavBarProps {
     children?: React.ReactNode // Slot for Context Switcher or other content
 }
 
+type AuthMode = 'nextauth' | 'easyauth'
+
+type EasyAuthClaim = {
+    typ: string
+    val: string
+}
+
+type EasyAuthMePrincipal = {
+    userDetails?: string
+    userId?: string
+    identityProvider?: string
+    claims?: EasyAuthClaim[]
+}
+
+type EasyAuthMeResponse = {
+    clientPrincipal?: EasyAuthMePrincipal
+}
+
 export function TopNavBar({ children }: TopNavBarProps) {
+    const { data: session } = useSession()
+    const [authMode, setAuthMode] = useState<AuthMode>('nextauth')
+    const [easyAuthPrincipal, setEasyAuthPrincipal] = useState<EasyAuthMePrincipal | null>(null)
+
+    useEffect(() => {
+        fetch('/api/settings/auth/public', { cache: 'no-store' })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+                const mode = data?.auth_mode === 'easyauth' ? 'easyauth' : 'nextauth'
+                setAuthMode(mode)
+
+                if (mode === 'easyauth') {
+                    fetch('/.auth/me', { cache: 'no-store' })
+                        .then((res) => (res.ok ? res.json() : []))
+                        .then((payload: EasyAuthMeResponse[]) => {
+                            const principal = payload?.[0]?.clientPrincipal || null
+                            setEasyAuthPrincipal(principal)
+                        })
+                        .catch(() => setEasyAuthPrincipal(null))
+                }
+            })
+            .catch(() => setAuthMode('nextauth'))
+    }, [])
+
+    const easyAuthEmail = useMemo(() => {
+        const claims = easyAuthPrincipal?.claims || []
+        return (
+            claims.find((c) => c.typ === 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress')?.val ||
+            claims.find((c) => c.typ === 'preferred_username')?.val ||
+            claims.find((c) => c.typ === 'upn')?.val ||
+            null
+        )
+    }, [easyAuthPrincipal])
+
+    const displayName = authMode === 'easyauth'
+        ? (easyAuthPrincipal?.userDetails || 'Microsoft Entra user')
+        : (session?.user?.name || 'User')
+
+    const secondaryValue = authMode === 'easyauth'
+        ? (easyAuthEmail || easyAuthPrincipal?.identityProvider || 'aad')
+        : (session?.user?.email || 'Owner account')
+
     const handleLogout = async () => {
         try {
+            if (authMode === 'easyauth') {
+                const redirect = encodeURIComponent(`${window.location.origin}/login`)
+                window.location.href = `/.auth/logout?post_logout_redirect_uri=${redirect}`
+                return
+            }
+
             await signOut({ redirect: true, callbackUrl: "/login" })
         } catch (e) {
             console.error("Logout failed:", e)
@@ -70,12 +138,12 @@ export function TopNavBar({ children }: TopNavBarProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                        <div className="px-2 py-2 text-xs text-zinc-500">
+                            <div className="font-medium text-zinc-900 dark:text-zinc-100 truncate">{displayName}</div>
+                            <div className="truncate">{secondaryValue}</div>
+                            <div className="uppercase tracking-wide mt-1">{authMode}</div>
+                        </div>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                            <Link href="/profile" className="cursor-pointer">
-                                <User className="mr-2 h-4 w-4" /> Profile
-                            </Link>
-                        </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link href="/admin/settings" className="cursor-pointer">
                                 <Settings className="mr-2 h-4 w-4" /> Settings
