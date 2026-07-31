@@ -28,6 +28,30 @@ async function getAuthMode(): Promise<AuthMode> {
     return cachedAuthMode
 }
 
+function getPublicOrigin(req: NextRequest): string {
+    const explicitPublicBase = process.env.PUBLIC_BASE_URL
+    if (explicitPublicBase) {
+        return explicitPublicBase
+    }
+
+    const configured = process.env.NEXTAUTH_URL
+    if (configured) {
+        return configured
+    }
+
+    const websiteHostname = process.env.WEBSITE_HOSTNAME
+    if (websiteHostname) {
+        return `https://${websiteHostname}`
+    }
+
+    const forwardedHost = req.headers.get('x-forwarded-host')?.split(',')[0]?.trim()
+    const host = forwardedHost || req.headers.get('host') || req.nextUrl.host
+    const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim()
+    const protocol = forwardedProto || req.nextUrl.protocol.replace(':', '') || 'https'
+
+    return `${protocol}://${host}`
+}
+
 export async function middleware(req: NextRequest) {
     const authMode = await getAuthMode()
 
@@ -76,15 +100,15 @@ export async function middleware(req: NextRequest) {
         const isEasyAuthLoggedIn = !!easyAuthPrincipal || !!easyAuthPrincipalId
 
         if (!isEasyAuthLoggedIn && !isPublicApi) {
-            // Use the public host to avoid leaking internal container hostnames in App Service.
-            const baseUrl = process.env.NEXTAUTH_URL || req.url
-            const callbackUrl = new URL(req.nextUrl.pathname + req.nextUrl.search, baseUrl).toString()
+            // Resolve callback host from forwarded headers in App Service.
+            const publicOrigin = getPublicOrigin(req)
+            const callbackUrl = new URL(req.nextUrl.pathname + req.nextUrl.search, publicOrigin).toString()
             const postLogin = encodeURIComponent(callbackUrl)
-            return NextResponse.redirect(new URL(`/.auth/login/aad?post_login_redirect_uri=${postLogin}`, req.url))
+            return NextResponse.redirect(new URL(`/.auth/login/aad?post_login_redirect_uri=${postLogin}`, publicOrigin))
         }
 
         if (isLogin && isEasyAuthLoggedIn) {
-            return NextResponse.redirect(new URL('/', req.url))
+            return NextResponse.redirect(new URL('/', getPublicOrigin(req)))
         }
 
         return NextResponse.next()
@@ -93,8 +117,7 @@ export async function middleware(req: NextRequest) {
     // Login Page Redirection
     if (isLogin) {
         if (isLoggedIn) {
-            const baseUrl = process.env.NEXTAUTH_URL || req.url
-            return NextResponse.redirect(new URL('/', baseUrl))
+            return NextResponse.redirect(new URL('/', getPublicOrigin(req)))
         }
         // Allow access to login page
         return NextResponse.next()
@@ -102,13 +125,10 @@ export async function middleware(req: NextRequest) {
 
     // Protected Routes (Everything else)
     if (!isLoggedIn && !isPublicApi) {
-        // Fix: Use NEXTAUTH_URL if available to prevent leaking internal container hostname
-        // NEXTAUTH_URL should be "https://web-terradorian-dev.azurewebsites.net"
-        const baseUrl = process.env.NEXTAUTH_URL || req.url
-        const loginUrl = new URL('/login', baseUrl)
+        const publicOrigin = getPublicOrigin(req)
+        const loginUrl = new URL('/login', publicOrigin)
 
-        // Ensure the callback URL is also properly rooted
-        const callbackUrl = new URL(req.nextUrl.pathname + req.nextUrl.search, baseUrl).toString()
+        const callbackUrl = new URL(req.nextUrl.pathname + req.nextUrl.search, publicOrigin).toString()
         loginUrl.searchParams.set('callbackUrl', callbackUrl)
 
         return NextResponse.redirect(loginUrl)
