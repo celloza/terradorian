@@ -76,7 +76,10 @@ export async function middleware(req: NextRequest) {
         const isEasyAuthLoggedIn = !!easyAuthPrincipal || !!easyAuthPrincipalId
 
         if (!isEasyAuthLoggedIn && !isPublicApi) {
-            const postLogin = encodeURIComponent(req.nextUrl.href)
+            // Use the public host to avoid leaking internal container hostnames in App Service.
+            const baseUrl = process.env.NEXTAUTH_URL || req.url
+            const callbackUrl = new URL(req.nextUrl.pathname + req.nextUrl.search, baseUrl).toString()
+            const postLogin = encodeURIComponent(callbackUrl)
             return NextResponse.redirect(new URL(`/.auth/login/aad?post_login_redirect_uri=${postLogin}`, req.url))
         }
 
