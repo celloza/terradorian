@@ -66,3 +66,20 @@ A bulk deletion endpoint that iterates through all plans associated with a given
 *   `POST /revoke_token`: Revoke a PAT.
     *   Body: `{ "project_id": "...", "token_id": "..." }`
 
+### Authentication Settings
+*   `GET /settings/auth`: Returns current authentication mode and Entra settings.
+    *   Returns fields: `auth_mode`, `client_id`, `client_secret`, `tenant_id`.
+    *   `auth_mode` values:
+        *   `nextauth` (default): app-managed login (owner credentials + optional Entra provider).
+        *   `easyauth`: Azure App Service EasyAuth (Microsoft Entra) is enforced by platform and middleware.
+*   `POST /settings/auth`: Save authentication mode and Entra settings.
+    *   Body example:
+    ```json
+    {
+      "auth_mode": "easyauth",
+      "client_id": "00000000-0000-0000-0000-000000000000",
+      "client_secret": "<optional-in-easyauth>",
+      "tenant_id": "00000000-0000-0000-0000-000000000000"
+    }
+    ```
+

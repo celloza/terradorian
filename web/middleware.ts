@@ -2,7 +2,35 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from "next-auth/jwt"
 
+type AuthMode = 'nextauth' | 'easyauth'
+
+let cachedAuthMode: AuthMode = 'nextauth'
+let cachedAt = 0
+
+async function getAuthMode(): Promise<AuthMode> {
+    const now = Date.now()
+    if (now - cachedAt < 60_000) {
+        return cachedAuthMode
+    }
+
+    try {
+        const apiUrl = process.env.API_URL || "http://localhost:7071/api"
+        const res = await fetch(`${apiUrl}/settings/auth`, { cache: 'no-store' })
+        if (res.ok) {
+            const settings = await res.json()
+            cachedAuthMode = settings.auth_mode === 'easyauth' ? 'easyauth' : 'nextauth'
+            cachedAt = now
+        }
+    } catch (e) {
+        // Keep previous mode on transient failures.
+    }
+
+    return cachedAuthMode
+}
+
 export async function middleware(req: NextRequest) {
+    const authMode = await getAuthMode()
+
     // 1. Auth Check using JWT Token
     // We use getToken because the 'auth' wrapper from v5 beta was causing runtime type errors with async config.
     // Explicitly check for the legacy cookie name we forced in auth.ts
@@ -35,9 +63,27 @@ export async function middleware(req: NextRequest) {
     const isLogin = pathname === '/login'
     const isPublicApi = pathname === '/api/settings/auth'
     const isHealth = pathname === '/health'
+    const isEasyAuthPath = pathname.startsWith('/.auth')
 
     // Allow public assets and auth API
-    if (isApiAuth || isPublicStatic || isHealth) {
+    if (isApiAuth || isPublicStatic || isHealth || isEasyAuthPath) {
+        return NextResponse.next()
+    }
+
+    if (authMode === 'easyauth') {
+        const easyAuthPrincipal = req.headers.get('x-ms-client-principal')
+        const easyAuthPrincipalId = req.headers.get('x-ms-client-principal-id')
+        const isEasyAuthLoggedIn = !!easyAuthPrincipal || !!easyAuthPrincipalId
+
+        if (!isEasyAuthLoggedIn && !isPublicApi) {
+            const postLogin = encodeURIComponent(req.nextUrl.href)
+            return NextResponse.redirect(new URL(`/.auth/login/aad?post_login_redirect_uri=${postLogin}`, req.url))
+        }
+
+        if (isLogin && isEasyAuthLoggedIn) {
+            return NextResponse.redirect(new URL('/', req.url))
+        }
+
         return NextResponse.next()
     }
 

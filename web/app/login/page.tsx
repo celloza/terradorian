@@ -14,6 +14,7 @@ function LoginContent() {
 
     const [error, setError] = useState('')
     const [showEntra, setShowEntra] = useState(false)
+    const [authMode, setAuthMode] = useState<'nextauth' | 'easyauth'>('nextauth')
     const { push } = useRouter()
 
     useEffect(() => {
@@ -21,12 +22,20 @@ function LoginContent() {
         fetch('/api/settings/auth')
             .then(res => res.json())
             .then(data => {
+                setAuthMode(data.auth_mode === 'easyauth' ? 'easyauth' : 'nextauth')
                 if (data.client_id && data.tenant_id) {
                     setShowEntra(true)
                 }
             })
             .catch(err => console.error("Failed to check auth settings", err))
     }, [])
+
+    useEffect(() => {
+        if (authMode === 'easyauth') {
+            const redirectTarget = encodeURIComponent(callbackUrl)
+            window.location.href = `/.auth/login/aad?post_login_redirect_uri=${redirectTarget}`
+        }
+    }, [authMode, callbackUrl])
 
     const handleOwnerLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -73,6 +82,13 @@ function LoginContent() {
                 </div>
                 <h1 className="text-2xl font-bold text-center">Login to terradorian</h1>
 
+                {authMode === 'easyauth' && (
+                    <p className="text-sm text-gray-300 text-center">
+                        Redirecting to Microsoft Entra ID...
+                    </p>
+                )}
+
+                {authMode === 'nextauth' && (
                 <form onSubmit={handleOwnerLogin} className="space-y-4">
                     {error && (
                         <div className="p-3 bg-red-500/10 border border-red-500/50 rounded text-sm text-red-500 text-center">
@@ -104,8 +120,9 @@ function LoginContent() {
                         Login
                     </button>
                 </form>
+                )}
 
-                {showEntra && (
+                {authMode === 'nextauth' && showEntra && (
                     <>
                         <div className="relative">
                             <div className="absolute inset-0 flex items-center">

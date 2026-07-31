@@ -64,6 +64,19 @@ export const { handlers, auth } = NextAuth({
 })
 ```
 
+## 2.1 EasyAuth Mode (App Service Authentication)
+
+Terradorian supports two auth modes configurable from the Admin Settings page:
+- `nextauth`: existing app-managed login.
+- `easyauth`: Azure App Service authentication using Microsoft Entra ID.
+
+When `easyauth` is selected:
+- Middleware checks App Service principal headers (`x-ms-client-principal`, `x-ms-client-principal-id`).
+- Unauthenticated users are redirected to `/.auth/login/aad` with post-login redirect back to the requested URL.
+- Login page automatically redirects to `/.auth/login/aad`.
+
+To use this mode in Azure, configure Web App Authentication in the Azure Portal with your existing Entra application registration.
+
 ## 3. Secure Networking (Web -> Function)
 
 We restrict the **Function App** to only accept traffic from:

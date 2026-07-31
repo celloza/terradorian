@@ -14,15 +14,21 @@ import { toast } from "sonner"
 // I'll stick to simple state message for now to be safe, or just keeping the existing message approach but styled better.
 
 interface AuthSettings {
+    auth_mode?: 'nextauth' | 'easyauth';
     client_id?: string;
     client_secret?: string;
     tenant_id?: string;
 }
 
 export default function SettingsPage() {
-    const { register, handleSubmit, setValue } = useForm<AuthSettings>()
+    const { register, handleSubmit, setValue, watch } = useForm<AuthSettings>({
+        defaultValues: {
+            auth_mode: 'nextauth'
+        }
+    })
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const authMode = watch('auth_mode') || 'nextauth'
 
     useEffect(() => {
         // Load current settings
@@ -33,6 +39,7 @@ export default function SettingsPage() {
             })
             .then((data: unknown) => {
                 const settings = data as AuthSettings;
+                setValue('auth_mode', settings.auth_mode || 'nextauth')
                 if (settings.client_id) setValue('client_id', settings.client_id)
                 // client_secret might be hidden/masked by backend in future, but for now it returns it
                 if (settings.client_secret) setValue('client_secret', settings.client_secret)
@@ -100,6 +107,18 @@ export default function SettingsPage() {
                             ) : (
                                 <>
                                     <div className="grid gap-2">
+                                        <Label htmlFor="auth_mode">Authentication Mode</Label>
+                                        <select
+                                            id="auth_mode"
+                                            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                            {...register('auth_mode')}
+                                        >
+                                            <option value="nextauth">NextAuth (App-managed login)</option>
+                                            <option value="easyauth">EasyAuth (Azure App Service authentication)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="grid gap-2">
                                         <Label htmlFor="client_id">Client ID (Application ID)</Label>
                                         <Input
                                             id="client_id"
@@ -126,6 +145,12 @@ export default function SettingsPage() {
                                             {...register('tenant_id')}
                                         />
                                     </div>
+
+                                    {authMode === 'easyauth' && (
+                                        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                                            EasyAuth mode uses Azure App Service authentication. Ensure your Web App Authentication blade is configured with this app registration.
+                                        </p>
+                                    )}
                                 </>
                             )}
                         </CardContent>

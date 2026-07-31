@@ -46,9 +46,10 @@ class RejectIngestionSchema(BaseModel):
     plan_id: str
 
 class AuthSettingsSchema(BaseModel):
-    client_id: str
-    client_secret: str
-    tenant_id: str
+    auth_mode: str = "nextauth"
+    client_id: str | None = None
+    client_secret: str | None = None
+    tenant_id: str | None = None
 
 class SlackSchedule(BaseModel):
     day: str = "Monday"

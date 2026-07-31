@@ -19,6 +19,7 @@ def get_auth_settings(req: func.HttpRequest) -> func.HttpResponse:
             # Remove internal fields before returning if necessary, 
             # though here we are just returning the schema fields
             settings = {
+                "auth_mode": item.get("auth_mode", "nextauth"),
                 "client_id": item.get("client_id"),
                 "client_secret": item.get("client_secret"), # In a real app, maybe don't return this? But user asked for editable settings.
                 "tenant_id": item.get("tenant_id")
@@ -48,6 +49,8 @@ def save_auth_settings(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(f"Invalid Request: {e}", status_code=400)
 
     doc_dict = settings_data.model_dump()
+    if not doc_dict.get("auth_mode"):
+        doc_dict["auth_mode"] = "nextauth"
     doc_dict['id'] = "auth_config"
     
     try:
