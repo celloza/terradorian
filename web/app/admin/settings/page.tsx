@@ -94,8 +94,8 @@ export default function SettingsPage() {
                     <CardHeader>
                         <CardTitle>Microsoft Entra ID</CardTitle>
                         <CardDescription>
-                            Configure Single Sign-On (SSO) with Microsoft Entra ID (formerly Azure AD).
-                            Leave these fields empty to disable Entra authentication.
+                            Configure authentication mode and Microsoft Entra details.
+                            Client secret is only required for NextAuth mode.
                         </CardDescription>
                     </CardHeader>
                     <form onSubmit={handleSubmit(onSubmit)}>
@@ -127,15 +127,17 @@ export default function SettingsPage() {
                                         />
                                     </div>
 
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="client_secret">Client Secret</Label>
-                                        <Input
-                                            id="client_secret"
-                                            type="password"
-                                            placeholder="Client Secret Value"
-                                            {...register('client_secret')}
-                                        />
-                                    </div>
+                                    {authMode === 'nextauth' && (
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="client_secret">Client Secret</Label>
+                                            <Input
+                                                id="client_secret"
+                                                type="password"
+                                                placeholder="Client Secret Value"
+                                                {...register('client_secret')}
+                                            />
+                                        </div>
+                                    )}
 
                                     <div className="grid gap-2">
                                         <Label htmlFor="tenant_id">Tenant ID</Label>
@@ -148,7 +150,7 @@ export default function SettingsPage() {
 
                                     {authMode === 'easyauth' && (
                                         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                            EasyAuth mode uses Azure App Service authentication. Ensure your Web App Authentication blade is configured with this app registration.
+                                            EasyAuth mode uses Azure App Service authentication. Client secret is not required here. Ensure the Web App Authentication blade is configured with this app registration.
                                         </p>
                                     )}
                                 </>

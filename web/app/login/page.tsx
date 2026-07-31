@@ -19,7 +19,7 @@ function LoginContent() {
 
     useEffect(() => {
         // Fetch settings on mount
-        fetch('/api/settings/auth')
+        fetch('/api/settings/auth/public')
             .then(res => res.json())
             .then(data => {
                 setAuthMode(data.auth_mode === 'easyauth' ? 'easyauth' : 'nextauth')

@@ -1,5 +1,6 @@
 import azure.functions as func
 import json
+import os
 from azure.cosmos import exceptions
 from pydantic import ValidationError
 from models import AuthSettingsSchema
@@ -7,8 +8,48 @@ from shared.db import get_container
 
 bp = func.Blueprint()
 
+
+def _is_internal_request(req: func.HttpRequest) -> bool:
+    internal_secret = os.environ.get('INTERNAL_SECRET')
+    if not internal_secret:
+        return False
+    return req.headers.get('x-internal-secret') == internal_secret
+
+
+@bp.route(route="settings/auth/public", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def get_public_auth_settings(req: func.HttpRequest) -> func.HttpResponse:
+    try:
+        container = get_container("settings", "/id")
+        doc_id = "auth_config"
+
+        try:
+            item = container.read_item(item=doc_id, partition_key=doc_id)
+            settings = {
+                "auth_mode": item.get("auth_mode", "nextauth"),
+                "client_id": item.get("client_id"),
+                "tenant_id": item.get("tenant_id"),
+                "has_client_secret": bool(item.get("client_secret"))
+            }
+            return func.HttpResponse(
+                body=json.dumps(settings),
+                status_code=200,
+                mimetype="application/json"
+            )
+        except exceptions.CosmosResourceNotFoundError:
+            return func.HttpResponse(
+                body=json.dumps({"auth_mode": "nextauth"}),
+                status_code=200,
+                mimetype="application/json"
+            )
+
+    except Exception as e:
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
 @bp.route(route="settings/auth", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
 def get_auth_settings(req: func.HttpRequest) -> func.HttpResponse:
+    if not _is_internal_request(req):
+        return func.HttpResponse("Unauthorized", status_code=401)
+
     try:
         container = get_container("settings", "/id")
         # specific ID for auth settings
@@ -21,7 +62,7 @@ def get_auth_settings(req: func.HttpRequest) -> func.HttpResponse:
             settings = {
                 "auth_mode": item.get("auth_mode", "nextauth"),
                 "client_id": item.get("client_id"),
-                "client_secret": item.get("client_secret"), # In a real app, maybe don't return this? But user asked for editable settings.
+                "client_secret": item.get("client_secret"),
                 "tenant_id": item.get("tenant_id")
             }
             return func.HttpResponse(
@@ -42,6 +83,9 @@ def get_auth_settings(req: func.HttpRequest) -> func.HttpResponse:
 
 @bp.route(route="settings/auth", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
 def save_auth_settings(req: func.HttpRequest) -> func.HttpResponse:
+    if not _is_internal_request(req):
+        return func.HttpResponse("Unauthorized", status_code=401)
+
     try:
         req_body = req.get_json()
         settings_data = AuthSettingsSchema(**req_body)

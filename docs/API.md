@@ -67,12 +67,16 @@ A bulk deletion endpoint that iterates through all plans associated with a given
     *   Body: `{ "project_id": "...", "token_id": "..." }`
 
 ### Authentication Settings
-*   `GET /settings/auth`: Returns current authentication mode and Entra settings.
+*   `GET /settings/auth/public`: Returns non-sensitive authentication metadata for login UX.
+    *   Returns fields: `auth_mode`, `client_id`, `tenant_id`, `has_client_secret`.
+*   `GET /settings/auth`: Returns full authentication settings (protected).
     *   Returns fields: `auth_mode`, `client_id`, `client_secret`, `tenant_id`.
+    *   Requires internal request header `x-internal-secret`.
     *   `auth_mode` values:
         *   `nextauth` (default): app-managed login (owner credentials + optional Entra provider).
         *   `easyauth`: Azure App Service EasyAuth (Microsoft Entra) is enforced by platform and middleware.
 *   `POST /settings/auth`: Save authentication mode and Entra settings.
+    *   Requires internal request header `x-internal-secret`.
     *   Body example:
     ```json
     {

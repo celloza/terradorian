@@ -29,7 +29,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth(async (req) => {
     // 2. Dynamic Entra ID Provider
     try {
         const apiUrl = process.env.API_URL || "http://localhost:7071/api"
-        const res = await fetch(`${apiUrl}/settings/auth`, { cache: 'no-store' })
+        const headers: HeadersInit = {}
+        if (process.env.INTERNAL_SECRET) {
+            headers['x-internal-secret'] = process.env.INTERNAL_SECRET
+        }
+
+        const res = await fetch(`${apiUrl}/settings/auth`, {
+            cache: 'no-store',
+            headers
+        })
         if (res.ok) {
             const settings = await res.json()
             if (settings.client_id && settings.client_secret && settings.tenant_id) {

@@ -15,7 +15,7 @@ async function getAuthMode(): Promise<AuthMode> {
 
     try {
         const apiUrl = process.env.API_URL || "http://localhost:7071/api"
-        const res = await fetch(`${apiUrl}/settings/auth`, { cache: 'no-store' })
+        const res = await fetch(`${apiUrl}/settings/auth/public`, { cache: 'no-store' })
         if (res.ok) {
             const settings = await res.json()
             cachedAuthMode = settings.auth_mode === 'easyauth' ? 'easyauth' : 'nextauth'
@@ -61,7 +61,7 @@ export async function middleware(req: NextRequest) {
         pathname === '/favicon.ico' ||
         /\.(svg|png|jpg|jpeg|gif|webp)$/i.test(pathname)
     const isLogin = pathname === '/login'
-    const isPublicApi = pathname === '/api/settings/auth'
+    const isPublicApi = pathname === '/api/settings/auth/public'
     const isHealth = pathname === '/health'
     const isEasyAuthPath = pathname.startsWith('/.auth')
 
