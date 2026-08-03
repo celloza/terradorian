@@ -209,6 +209,16 @@ export const listBranches = async (project_id: string) => {
     return res.json();
 };
 
+export const calculateDiskUsage = async (project_id: string) => {
+    const res = await fetch(`${API_BASE}/calculate_disk_usage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id }),
+    });
+    if (!res.ok) throw new Error("Failed to calculate disk usage");
+    return res.json();
+};
+
 export const exportPlans = async (project_id: string, environments: string[], branch?: string) => {
     let url = `${API_BASE}/export_plans?project_id=${project_id}&environment=${environments.join(',')}`;
     if (branch) {

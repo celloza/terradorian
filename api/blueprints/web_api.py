@@ -581,6 +581,73 @@ def list_branches(req: func.HttpRequest) -> func.HttpResponse:
         logging.error(f"Error listing branches: {e}")
         return func.HttpResponse(f"Error: {e}", status_code=500)
 
+@bp.route(route="calculate_disk_usage", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def calculate_disk_usage(req: func.HttpRequest) -> func.HttpResponse:
+    """Calculate total disk usage (Cosmos DB + Blob Storage) for a project."""
+    import logging
+    from shared.storage import get_blob_service_client
+    
+    try:
+        req_body = req.get_json()
+        project_id = req_body.get('project_id')
+    except ValueError:
+        return func.HttpResponse("Invalid JSON", status_code=400)
+
+    if not project_id:
+        return func.HttpResponse("project_id required", status_code=400)
+
+    try:
+        # Calculate Cosmos DB size (sum of all plan documents for this project)
+        plans_container = get_container("plans", "/id")
+        plans = list(plans_container.query_items(
+            query="SELECT * FROM c WHERE c.project_id = @pid",
+            parameters=[{"name": "@pid", "value": project_id}],
+            enable_cross_partition_query=True
+        ))
+        
+        cosmos_size_bytes = sum(len(json.dumps(plan).encode('utf-8')) for plan in plans)
+        
+        # Calculate Blob Storage size
+        blob_service_client = get_blob_service_client()
+        container_client = blob_service_client.get_container_client("plans")
+        
+        blob_size_bytes = 0
+        prefix = f"{project_id}/"
+        
+        try:
+            blobs = container_client.list_blobs(name_starts_with=prefix)
+            for blob in blobs:
+                blob_size_bytes += blob.size or 0
+        except Exception as e:
+            logging.warning(f"Could not list blobs for project {project_id}: {e}")
+        
+        total_size_bytes = cosmos_size_bytes + blob_size_bytes
+        
+        # Format sizes in human-readable format
+        def format_bytes(bytes_val):
+            for unit in ['B', 'KB', 'MB', 'GB']:
+                if bytes_val < 1024:
+                    return f"{bytes_val:.2f} {unit}"
+                bytes_val /= 1024
+            return f"{bytes_val:.2f} TB"
+        
+        return func.HttpResponse(
+            body=json.dumps({
+                "total_bytes": total_size_bytes,
+                "total_formatted": format_bytes(total_size_bytes),
+                "cosmos_bytes": cosmos_size_bytes,
+                "cosmos_formatted": format_bytes(cosmos_size_bytes),
+                "blob_bytes": blob_size_bytes,
+                "blob_formatted": format_bytes(blob_size_bytes),
+                "plan_count": len(plans)
+            }),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except Exception as e:
+        logging.error(f"Error calculating disk usage: {e}")
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
 @bp.route(route="test_slack_notification", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
 def test_slack_notification(req: func.HttpRequest) -> func.HttpResponse:
     """Send a test message to the configured Slack webhook."""

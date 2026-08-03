@@ -3,7 +3,7 @@
 import { useState, use } from "react"
 import useSWR from "swr"
 import { useRouter } from "next/navigation"
-import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion, deleteAllPlans, deleteBranchPlans, testSlackNotification, listBranches } from "@/lib/api"
+import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion, deleteAllPlans, deleteBranchPlans, testSlackNotification, listBranches, calculateDiskUsage } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2, Settings, Check, Loader2, History, GitBranch, Send, Clock } from "lucide-react"
+import { Trash2, AlertTriangle, X, Bell, Mail, Slack, Layers, Wand2, Settings, Check, Loader2, History, GitBranch, Send, Clock, HardDrive } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "sonner"
@@ -41,6 +41,10 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     const [deleteBranchLoading, setDeleteBranchLoading] = useState(false)
     const [availableBranches, setAvailableBranches] = useState<string[]>([])
     const [loadingBranches, setLoadingBranches] = useState(false)
+
+    // Disk Usage State
+    const [diskUsageLoading, setDiskUsageLoading] = useState(false)
+    const [diskUsage, setDiskUsage] = useState<any>(null)
 
     // Notifications State
     const [settingsLoading, setSettingsLoading] = useState(false)
@@ -78,6 +82,19 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
             toast.error("Failed to save general settings")
         } finally {
             setSettingsLoading(false)
+        }
+    }
+
+    const handleCalculateDiskUsage = async () => {
+        setDiskUsageLoading(true)
+        try {
+            const result = await calculateDiskUsage(id)
+            setDiskUsage(result)
+            toast.success("Disk usage calculated")
+        } catch (e) {
+            toast.error("Failed to calculate disk usage")
+        } finally {
+            setDiskUsageLoading(false)
         }
     }
 
@@ -344,6 +361,52 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
 
                     <Button onClick={handleSaveGeneral} disabled={settingsLoading}>
                         {settingsLoading ? "Saving..." : "Save Changes"}
+                    </Button>
+                </CardContent>
+            </Card>
+
+            {/* Disk Usage Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center"><HardDrive className="mr-2 h-5 w-5" /> Disk Usage</CardTitle>
+                    <CardDescription>Monitor storage consumption for this project.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {diskUsage ? (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-3 border rounded-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+                                    <p className="text-xs text-muted-foreground font-medium">Total Usage</p>
+                                    <p className="text-lg font-semibold mt-1">{diskUsage.total_formatted}</p>
+                                </div>
+                                <div className="p-3 border rounded-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+                                    <p className="text-xs text-muted-foreground font-medium">Plans ({diskUsage.plan_count})</p>
+                                    <p className="text-sm text-muted-foreground mt-1">Cosmos: {diskUsage.cosmos_formatted}</p>
+                                    <p className="text-sm text-muted-foreground">Blob: {diskUsage.blob_formatted}</p>
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Calculated at {new Date().toLocaleString()}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="p-4 border rounded-md bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800">
+                            <p className="text-sm text-muted-foreground">Disk usage not calculated yet.</p>
+                            <p className="text-xs text-muted-foreground mt-1">Click the button below to analyze storage usage for all plans in this project.</p>
+                        </div>
+                    )}
+                    <Button onClick={handleCalculateDiskUsage} disabled={diskUsageLoading} variant="default">
+                        {diskUsageLoading ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Calculating...
+                            </>
+                        ) : (
+                            <>
+                                <HardDrive className="mr-2 h-4 w-4" />
+                                Calculate Usage
+                            </>
+                        )}
                     </Button>
                 </CardContent>
             </Card>
