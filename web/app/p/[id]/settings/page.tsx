@@ -197,19 +197,6 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
         setIsDeletingBranch(true)
     }
 
-    const loadBranchList = async () => {
-        setLoadingBranches(true)
-        try {
-            const data = await listBranches(id)
-            setAvailableBranches(data.branches || [])
-        } catch (e) {
-            console.error("Failed to load branches:", e)
-            toast.error("Failed to load branches")
-        } finally {
-            setLoadingBranches(false)
-        }
-    }
-
     const handleDeleteBranchPlans = async () => {
         if (!project) return
 
@@ -221,27 +208,15 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                 const result = await deleteBranchPlans(id, branchToDelete.trim())
                 toast.success(result.message || `Deleted plans for branch '${branchToDelete}'.`)
             } else if (branchDeleteMode === 'all-non-default') {
-                // Delete all non-default branches
-                const defaultBranchName = project.default_branch || "develop"
-                const nonDefaultBranches = availableBranches.filter(b => b !== defaultBranchName)
-                
-                if (nonDefaultBranches.length === 0) {
-                    toast.info("No non-default branches to delete.")
-                    setIsDeletingBranch(false)
-                    setDeleteBranchLoading(false)
-                    return
-                }
-
-                let deletedCount = 0
-                for (const branch of nonDefaultBranches) {
-                    try {
-                        await deleteBranchPlans(id, branch)
-                        deletedCount++
-                    } catch (e) {
-                        console.error(`Failed to delete branch ${branch}:`, e)
-                    }
-                }
-                toast.success(`Deleted plans for ${deletedCount} non-default branch${deletedCount !== 1 ? 'es' : ''}.`)
+                // Delete all non-default branches (server-side)
+                const result = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/delete_all_non_default_branch_plans`, {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ project_id: id }),
+                })
+                if (!result.ok) throw new Error("Failed to delete non-default branches")
+                const data = await result.json()
+                toast.success(data.message || "Deleted all non-default branch plans.")
             }
 
             // Reset state
@@ -930,11 +905,6 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                         </DialogDescription>
                     </DialogHeader>
 
-                    {loadingBranches ? (
-                        <div className="py-8 flex items-center justify-center">
-                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                        </div>
-                    ) : (
                         <div className="py-4 space-y-6">
                             {/* Mode Selection */}
                             <div className="space-y-3">
@@ -968,12 +938,7 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                                         ? 'border-red-300 bg-red-50' 
                                         : 'border-gray-200 hover:border-gray-300'
                                 }`}
-                                onClick={() => {
-                                    setBranchDeleteMode('all-non-default')
-                                    if (availableBranches.length === 0 && !loadingBranches) {
-                                        loadBranchList()
-                                    }
-                                }}
+                                onClick={() => setBranchDeleteMode('all-non-default')}
                                 >
                                     <div className="flex items-start gap-3">
                                         <input
@@ -981,12 +946,7 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                                             name="branchDeleteMode"
                                             value="all-non-default"
                                             checked={branchDeleteMode === 'all-non-default'}
-                                            onChange={() => {
-                                                setBranchDeleteMode('all-non-default')
-                                                if (availableBranches.length === 0 && !loadingBranches) {
-                                                    loadBranchList()
-                                                }
-                                            }}
+                                            onChange={() => setBranchDeleteMode('all-non-default')}
                                             className="mt-1"
                                         />
                                         <div>
@@ -1003,36 +963,14 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                             {branchDeleteMode === 'specific' && (
                                 <div className="space-y-3 pt-2 border-t">
                                     <div className="space-y-2">
-                                        <Label>Select or enter branch name</Label>
-                                        <Select value={branchToDelete} onValueChange={setBranchToDelete} onOpenChange={(open) => {
-                                            if (open && availableBranches.length === 0 && !loadingBranches) {
-                                                loadBranchList()
-                                            }
-                                        }}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder={loadingBranches ? "Loading branches..." : "Choose a branch..."} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {loadingBranches ? (
-                                                    <SelectItem value="" disabled className="text-xs">Loading branches...</SelectItem>
-                                                ) : availableBranches.length > 0 ? (
-                                                    availableBranches.map(branch => (
-                                                        <SelectItem key={branch} value={branch}>
-                                                            {branch}
-                                                        </SelectItem>
-                                                    ))
-                                                ) : (
-                                                    <SelectItem value="" disabled>No branches found</SelectItem>
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                        <p className="text-xs text-muted-foreground">Or type a branch name not in the list:</p>
+                                        <Label>Branch name</Label>
                                         <Input
                                             value={branchToDelete}
                                             onChange={(e) => setBranchToDelete(e.target.value)}
                                             placeholder="e.g. feature/my-branch"
                                             className="font-mono"
                                         />
+                                        <p className="text-xs text-muted-foreground">Enter the exact branch name to delete.</p>
                                     </div>
                                     
                                     {branchToDelete.trim() && (
@@ -1052,34 +990,11 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                             {/* All Non-Default Summary */}
                             {branchDeleteMode === 'all-non-default' && (
                                 <div className="space-y-3 pt-2 border-t bg-red-50 p-3 rounded">
-                                    {loadingBranches ? (
-                                        <div className="flex items-center gap-2">
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                            <p className="text-sm">Loading branches...</p>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <p className="text-sm font-medium">This will delete plans for:</p>
-                                            {availableBranches.filter(b => b !== (project?.default_branch || "develop")).length > 0 ? (
-                                                <div className="space-y-1 max-h-48 overflow-y-auto">
-                                                    {availableBranches
-                                                        .filter(b => b !== (project?.default_branch || "develop"))
-                                                        .map(branch => (
-                                                            <div key={branch} className="text-sm flex items-center gap-2">
-                                                                <span className="text-red-600">•</span>
-                                                                <span className="font-mono">{branch}</span>
-                                                            </div>
-                                                        ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-xs text-muted-foreground">No non-default branches found</p>
-                                            )}
-                                        </>
-                                    )}
+                                    <p className="text-sm font-medium">This will delete all Terraform plans from branches other than <span className="font-mono font-semibold">{project?.default_branch || "develop"}</span>.</p>
+                                    <p className="text-xs text-muted-foreground">The server will identify and delete all non-default branch plans when you confirm.</p>
                                 </div>
                             )}
                         </div>
-                    )}
 
                     <DialogFooter>
                         <Button variant="outline" onClick={handleCloseBranchModal} disabled={deleteBranchLoading}>
@@ -1090,9 +1005,7 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                             onClick={handleDeleteBranchPlans}
                             disabled={
                                 deleteBranchLoading ||
-                                loadingBranches ||
-                                (branchDeleteMode === 'specific' && (!branchToDelete.trim() || confirmBranchDelete !== branchToDelete.trim())) ||
-                                (branchDeleteMode === 'all-non-default' && availableBranches.filter(b => b !== (project?.default_branch || "develop")).length === 0)
+                                (branchDeleteMode === 'specific' && (!branchToDelete.trim() || confirmBranchDelete !== branchToDelete.trim()))
                             }
                         >
                             {deleteBranchLoading ? (

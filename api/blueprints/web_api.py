@@ -570,7 +570,7 @@ def list_branches(req: func.HttpRequest) -> func.HttpResponse:
             enable_cross_partition_query=True
         ))
         
-        branches = sorted([plan.get("branch") for plan in plans if plan.get("branch")])
+        branches = sorted([plan.get("branch") for plan in plans if plan.get("branch") and isinstance(plan.get("branch"), str) and plan.get("branch").strip()])
         
         return func.HttpResponse(
             body=json.dumps({"branches": branches}),
@@ -646,6 +646,93 @@ def calculate_disk_usage(req: func.HttpRequest) -> func.HttpResponse:
         )
     except Exception as e:
         logging.error(f"Error calculating disk usage: {e}")
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="delete_all_non_default_branch_plans", auth_level=func.AuthLevel.ANONYMOUS, methods=["DELETE"])
+def delete_all_non_default_branch_plans(req: func.HttpRequest) -> func.HttpResponse:
+    """Delete all plans for all non-default branches within a project."""
+    import logging
+    import os
+    from shared.storage import delete_plan_blob
+    from shared.auth import verify_pat
+
+    # --- Authentication Logic ---
+    is_authorized = False
+    authenticated_project_id = None
+
+    # 1. Check Internal Secret (from Web App)
+    internal_secret = os.environ.get('INTERNAL_SECRET')
+    auth_header_secret = req.headers.get('x-internal-secret')
+    
+    if internal_secret and auth_header_secret == internal_secret:
+        is_authorized = True
+        logging.info("delete_all_non_default_branch_plans: Authenticated via Internal Secret")
+    
+    # 2. Check PAT (from DevOps/External)
+    if not is_authorized:
+        auth_header = req.headers.get('Authorization')
+        if auth_header and auth_header.startswith("Bearer "):
+            token_str = auth_header.split(" ")[1]
+            project_doc = verify_pat(token_str)
+            if project_doc:
+                authenticated_project_id = project_doc.get('id')
+                is_authorized = True
+                logging.info(f"delete_all_non_default_branch_plans: Authenticated via PAT for Project {authenticated_project_id}")
+
+    if not is_authorized:
+        return func.HttpResponse("Unauthorized: Invalid PAT or Secret", status_code=401)
+
+    try:
+        req_body = req.get_json()
+        project_id = req_body.get('project_id')
+    except ValueError:
+        return func.HttpResponse("Invalid JSON", status_code=400)
+
+    if not project_id:
+        return func.HttpResponse("project_id required", status_code=400)
+    
+    # If authenticated via PAT, enforce project_id match
+    if authenticated_project_id and project_id != authenticated_project_id:
+        return func.HttpResponse("Forbidden: PAT not valid for this project", status_code=403)
+
+    try:
+        # Get project to find default branch
+        projects_container = get_container("projects", "/id")
+        project_doc = projects_container.read_item(item=project_id, partition_key=project_id)
+        default_branch = project_doc.get('default_branch', 'develop')
+        
+        # Find all plans for branches other than default
+        plans_container = get_container("plans", "/id")
+        plans = list(plans_container.query_items(
+            query="SELECT c.id, c.blob_url, c.branch FROM c WHERE c.project_id = @pid AND c.branch != @default_branch",
+            parameters=[
+                {"name": "@pid", "value": project_id},
+                {"name": "@default_branch", "value": default_branch}
+            ],
+            enable_cross_partition_query=True
+        ))
+
+        deleted_count = 0
+        for plan in plans:
+            blob_url = plan.get("blob_url")
+            if blob_url:
+                delete_plan_blob(blob_url)
+            try:
+                plans_container.delete_item(item=plan['id'], partition_key=plan['id'])
+                deleted_count += 1
+            except exceptions.CosmosResourceNotFoundError:
+                continue
+
+        return func.HttpResponse(
+            body=json.dumps({"message": f"Deleted {deleted_count} plans from non-default branches.", "deleted_count": deleted_count}),
+            status_code=200,
+            mimetype="application/json"
+        )
+
+    except exceptions.CosmosResourceNotFoundError:
+        return func.HttpResponse("Project not found", status_code=404)
+    except Exception as e:
+        logging.error(f"Error deleting non-default branch plans: {e}")
         return func.HttpResponse(f"Error: {e}", status_code=500)
 
 @bp.route(route="test_slack_notification", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
