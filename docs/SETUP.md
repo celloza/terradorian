@@ -3,7 +3,7 @@
 ## Prerequisites
 *   **Docker Desktop**: Running.
 *   **Node.js**: v18+.
-*   **Python**: v3.11+.
+*   **Python**: v3.12+.
 *   **Azure Functions Core Tools**: v4+.
 *   **Azurite**: For Blob Storage emulation.
 *   **Azure Cosmos DB Emulator**: (Linux Docker container recommended).

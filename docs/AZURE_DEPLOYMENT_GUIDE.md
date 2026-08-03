@@ -46,7 +46,7 @@ Running NextAuth.js behind Azure App Service's load balancer requires proxy conf
 ### Proxy Configuration
 - **`AUTH_TRUST_HOST: 'true'`**: Tells NextAuth to trust the `X-Forwarded-Host` headers from Azure. Without this, strictly secure cookies might fail or redirects may break.
 - **`NEXTAUTH_URL`**: Must be set to the **public HTTPS URL** (e.g., `https://web-terradorian-dev.azurewebsites.net`).
-    - **Fix for Internal Hostname Leak**: In `middleware.ts`, we explicitly use `process.env.NEXTAUTH_URL` for redirects. If we rely on `req.url`, Azure might pass the internal container hostname (`http://f12c...:8080`), causing a redirect loop or 500 error.
+    - **Fix for Internal Hostname Leak**: In `proxy.ts`, we explicitly use `process.env.NEXTAUTH_URL` for redirects. If we rely on `req.url`, Azure might pass the internal container hostname (`http://f12c...:8080`), causing a redirect loop or 500 error.
 
 ### Cookie Name Mismatch (Infinite Login Loop)
 **The Issue**: NextAuth v5 (Beta) defaults to `authjs.session-token`, but the `getToken()` helper (from `next-auth/jwt` compatibility layer) often looks for `next-auth.session-token`.

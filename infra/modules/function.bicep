@@ -88,6 +88,15 @@ resource functionApp 'Microsoft.Web/sites@2022-09-01' = {
           value: 'UseExpressBuild'
         }
         {
+          // Explicitly pin Functions host/runtime to avoid portal deprecation warnings.
+          name: 'FUNCTIONS_EXTENSION_VERSION'
+          value: '~4'
+        }
+        {
+          name: 'FUNCTIONS_WORKER_RUNTIME'
+          value: 'python'
+        }
+        {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
           value: 'false' // Disable build during deployment as we are using a pre-built zip
         }

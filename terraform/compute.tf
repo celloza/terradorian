@@ -21,7 +21,7 @@ resource "azurerm_linux_function_app" "main" {
 
   site_config {
     application_stack {
-      python_version = "3.11"
+      python_version = "3.12"
     }
     vnet_route_all_enabled = true
   }
@@ -36,6 +36,8 @@ resource "azurerm_linux_function_app" "main" {
     "CosmosDbConnectionSetting__accountEndpoint" = azurerm_cosmosdb_account.main.endpoint
     "AZURE_CLIENT_ID"                            = azurerm_user_assigned_identity.app_identity.client_id
     "BUILD_FLAGS"                                = "UseExpressBuild"
+    "FUNCTIONS_EXTENSION_VERSION"                = "~4"
+    "FUNCTIONS_WORKER_RUNTIME"                   = "python"
     "ENABLE_ORYX_BUILD"                          = "true"
     "SCM_DO_BUILD_DURING_DEPLOYMENT"             = "true"
     "XDG_CACHE_HOME"                             = "/tmp/.cache"

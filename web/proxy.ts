@@ -52,7 +52,7 @@ function getPublicOrigin(req: NextRequest): string {
     return `${protocol}://${host}`
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
     const authMode = await getAuthMode()
 
     // 1. Auth Check using JWT Token
@@ -137,7 +137,7 @@ export async function middleware(req: NextRequest) {
     // 2. API Protection
     // Note: We DO NOT rewrite here. We let the request fall through to 
     // app/api/[...proxy]/route.ts which handles the proxying and Secret Injection.
-    // The middleware only ensures the user is authenticated.
+    // The proxy only ensures the user is authenticated.
 
     return NextResponse.next()
 }
