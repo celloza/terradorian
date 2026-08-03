@@ -209,6 +209,16 @@ export const listBranches = async (project_id: string) => {
     return res.json();
 };
 
+export const deleteAllNonDefaultBranchPlans = async (project_id: string) => {
+    const res = await fetch(`${API_BASE}/delete_all_non_default_branch_plans`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id }),
+    });
+    if (!res.ok) throw new Error("Failed to delete non-default branch plans");
+    return res.json();
+};
+
 export const calculateDiskUsage = async (project_id: string) => {
     const res = await fetch(`${API_BASE}/calculate_disk_usage`, {
         method: "POST",

@@ -93,9 +93,9 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const [currentPage, setCurrentPage] = useState(1)
 
     const ITEMS_PER_PAGE = 10
-    const totalPlans = allPlans?.length || 0
+    const totalPlans = filteredPlans?.length || 0
     const totalPages = Math.max(1, Math.ceil(totalPlans / ITEMS_PER_PAGE))
-    const paginatedPlans = allPlans?.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE) || []
+    const paginatedPlans = filteredPlans?.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE) || []
 
     useEffect(() => {
         setCurrentPage(1)

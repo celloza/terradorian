@@ -3,7 +3,7 @@
 import { useState, use } from "react"
 import useSWR from "swr"
 import { useRouter } from "next/navigation"
-import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion, deleteAllPlans, deleteBranchPlans, testSlackNotification, listBranches, calculateDiskUsage } from "@/lib/api"
+import { fetcher, deleteEnvironment, listComponents, deleteComponent, updateProjectSettings, approveIngestion, rejectIngestion, deleteAllPlans, deleteBranchPlans, testSlackNotification, listBranches, calculateDiskUsage, deleteAllNonDefaultBranchPlans } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
@@ -208,14 +208,7 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
                 const result = await deleteBranchPlans(id, branchToDelete.trim())
                 toast.success(result.message || `Deleted plans for branch '${branchToDelete}'.`)
             } else if (branchDeleteMode === 'all-non-default') {
-                // Delete all non-default branches (server-side)
-                const result = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/delete_all_non_default_branch_plans`, {
-                    method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ project_id: id }),
-                })
-                if (!result.ok) throw new Error("Failed to delete non-default branches")
-                const data = await result.json()
+                const data = await deleteAllNonDefaultBranchPlans(id)
                 toast.success(data.message || "Deleted all non-default branch plans.")
             }
 
