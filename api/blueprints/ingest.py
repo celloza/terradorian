@@ -592,9 +592,42 @@ def delete_plan(req: func.HttpRequest) -> func.HttpResponse:
 
 @bp.route(route="delete_all_plans", auth_level=func.AuthLevel.ANONYMOUS, methods=["DELETE"])
 def delete_all_plans(req: func.HttpRequest) -> func.HttpResponse:
+    import os
+    from shared.auth import verify_pat
+    
+    # --- Authentication Logic ---
+    is_authorized = False
+    authenticated_project_id = None
+
+    # 1. Check Internal Secret (from Web App)
+    internal_secret = os.environ.get('INTERNAL_SECRET')
+    auth_header_secret = req.headers.get('x-internal-secret')
+    
+    if internal_secret and auth_header_secret == internal_secret:
+        is_authorized = True
+        logging.info("delete_all_plans: Authenticated via Internal Secret")
+    
+    # 2. Check PAT (from DevOps/External)
+    if not is_authorized:
+        auth_header = req.headers.get('Authorization')
+        if auth_header and auth_header.startswith("Bearer "):
+            token_str = auth_header.split(" ")[1]
+            project_doc = verify_pat(token_str)
+            if project_doc:
+                authenticated_project_id = project_doc.get('id')
+                is_authorized = True
+                logging.info(f"delete_all_plans: Authenticated via PAT for Project {authenticated_project_id}")
+
+    if not is_authorized:
+        return func.HttpResponse("Unauthorized: Invalid PAT or Secret", status_code=401)
+    
     project_id = req.params.get('project_id')
     if not project_id:
         return func.HttpResponse("project_id parameter is required", status_code=400)
+    
+    # If authenticated via PAT, enforce project_id match
+    if authenticated_project_id and project_id != authenticated_project_id:
+        return func.HttpResponse("Forbidden: PAT not valid for this project", status_code=403)
         
     logging.info(f"Processing delete_all_plans request for project_id: {project_id}")
 

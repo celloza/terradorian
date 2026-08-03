@@ -478,7 +478,35 @@ def delete_environment(req: func.HttpRequest) -> func.HttpResponse:
 def delete_branch_plans(req: func.HttpRequest) -> func.HttpResponse:
     """Delete all plans for a specific branch within a project."""
     import logging
+    import os
     from shared.storage import delete_plan_blob
+    from shared.auth import verify_pat
+
+    # --- Authentication Logic ---
+    is_authorized = False
+    authenticated_project_id = None
+
+    # 1. Check Internal Secret (from Web App)
+    internal_secret = os.environ.get('INTERNAL_SECRET')
+    auth_header_secret = req.headers.get('x-internal-secret')
+    
+    if internal_secret and auth_header_secret == internal_secret:
+        is_authorized = True
+        logging.info("delete_branch_plans: Authenticated via Internal Secret")
+    
+    # 2. Check PAT (from DevOps/External)
+    if not is_authorized:
+        auth_header = req.headers.get('Authorization')
+        if auth_header and auth_header.startswith("Bearer "):
+            token_str = auth_header.split(" ")[1]
+            project_doc = verify_pat(token_str)
+            if project_doc:
+                authenticated_project_id = project_doc.get('id')
+                is_authorized = True
+                logging.info(f"delete_branch_plans: Authenticated via PAT for Project {authenticated_project_id}")
+
+    if not is_authorized:
+        return func.HttpResponse("Unauthorized: Invalid PAT or Secret", status_code=401)
 
     try:
         req_body = req.get_json()
@@ -489,6 +517,10 @@ def delete_branch_plans(req: func.HttpRequest) -> func.HttpResponse:
 
     if not project_id or not branch:
         return func.HttpResponse("project_id and branch required", status_code=400)
+    
+    # If authenticated via PAT, enforce project_id match
+    if authenticated_project_id and project_id != authenticated_project_id:
+        return func.HttpResponse("Forbidden: PAT not valid for this project", status_code=403)
 
     try:
         plans_container = get_container("plans", "/id")
@@ -520,6 +552,33 @@ def delete_branch_plans(req: func.HttpRequest) -> func.HttpResponse:
 
     except Exception as e:
         logging.error(f"Error deleting branch plans: {e}")
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+@bp.route(route="list_branches", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def list_branches(req: func.HttpRequest) -> func.HttpResponse:
+    """List all unique branches for a project."""
+    project_id = req.params.get('project_id')
+    if not project_id:
+        return func.HttpResponse("project_id parameter is required", status_code=400)
+
+    try:
+        plans_container = get_container("plans", "/id")
+        # Query distinct branches for this project
+        plans = list(plans_container.query_items(
+            query="SELECT DISTINCT c.branch FROM c WHERE c.project_id = @pid",
+            parameters=[{"name": "@pid", "value": project_id}],
+            enable_cross_partition_query=True
+        ))
+        
+        branches = sorted([plan.get("branch") for plan in plans if plan.get("branch")])
+        
+        return func.HttpResponse(
+            body=json.dumps({"branches": branches}),
+            status_code=200,
+            mimetype="application/json"
+        )
+    except Exception as e:
+        logging.error(f"Error listing branches: {e}")
         return func.HttpResponse(f"Error: {e}", status_code=500)
 
 @bp.route(route="test_slack_notification", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])

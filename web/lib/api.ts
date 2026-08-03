@@ -203,6 +203,12 @@ export const deleteBranchPlans = async (project_id: string, branch: string) => {
     return res.json();
 };
 
+export const listBranches = async (project_id: string) => {
+    const res = await fetch(`${API_BASE}/list_branches?project_id=${project_id}`);
+    if (!res.ok) throw new Error("Failed to list branches");
+    return res.json();
+};
+
 export const exportPlans = async (project_id: string, environments: string[], branch?: string) => {
     let url = `${API_BASE}/export_plans?project_id=${project_id}&environment=${environments.join(',')}`;
     if (branch) {
