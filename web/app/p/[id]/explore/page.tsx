@@ -3,7 +3,7 @@
 import { useState, useMemo, use, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import useSWR from "swr"
-import { fetcher, listPlans } from "@/lib/api"
+import { fetcher, listComponents, listPlans } from "@/lib/api"
 import { ResourceList, ResourceChange } from "@/components/resource-list"
 import { formatDistanceToNow } from "date-fns"
 import { Clock, Layers, Box, Filter } from "lucide-react"
@@ -24,6 +24,20 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
 
     // Fetch ALL plans
     const { data: plans } = useSWR(listPlans(id), fetcher)
+    const { data: components } = useSWR(listComponents(id), fetcher)
+
+    const componentNameById = useMemo(() => {
+        const map = new Map<string, string>()
+        if (!components) return map
+
+        components.forEach((component: any) => {
+            if (component?.id && component?.name) {
+                map.set(component.id, component.name)
+            }
+        })
+
+        return map
+    }, [components])
 
     // Discover Environments
     const availableEnvs = useMemo(() => {
@@ -76,17 +90,19 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
 
             if (p.terraform_plan && p.terraform_plan.resource_changes) {
                 p.terraform_plan.resource_changes.forEach((rc: any) => {
+                    const componentName = p.component_name || componentNameById.get(p.component_id) || p.component_id
                     flatChanges.push({
                         ...rc,
                         environment: p.environment,
                         componentId: p.component_id,
+                        componentName,
                     })
                 })
             }
         })
 
         return flatChanges
-    }, [plans, visibleEnvs])
+    }, [plans, visibleEnvs, componentNameById])
 
     // Calc stats
     const totalResources = resourceChanges.length

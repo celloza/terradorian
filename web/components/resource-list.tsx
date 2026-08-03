@@ -14,6 +14,7 @@ export interface ResourceChange {
     resource_group?: string
     environment?: string // Added
     componentId?: string // Added
+    componentName?: string
     change: {
         actions: string[]
         before: any
@@ -50,7 +51,7 @@ function getGroupName(change: ResourceChange, groupBy: string): string {
     return "All Resources"
 }
 
-type SortKey = "address" | "type" | "resource_group" | "environment" | "change"
+type SortKey = "address" | "type" | "resource_group" | "environment" | "componentName" | "change"
 type SortDir = "asc" | "desc"
 
 export function ResourceList({ changes, groupBy = "none" }: ResourceListProps) {
@@ -152,6 +153,7 @@ export function ResourceList({ changes, groupBy = "none" }: ResourceListProps) {
                     <Badge variant="secondary" className="font-mono text-xs">{change.environment || 'dev'}</Badge>
                 </TableCell>
 
+                <TableCell className="text-sm text-muted-foreground">{change.componentName || change.componentId || "-"}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{rg || "-"}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{change.type}</TableCell>
                 <TableCell>
@@ -186,6 +188,9 @@ export function ResourceList({ changes, groupBy = "none" }: ResourceListProps) {
                             <TableHead className="cursor-pointer" onClick={() => handleSort("environment")}>
                                 <div className="flex items-center">Env <SortIcon column="environment" /></div>
                             </TableHead>
+                            <TableHead className="cursor-pointer" onClick={() => handleSort("componentName")}>
+                                <div className="flex items-center">Component <SortIcon column="componentName" /></div>
+                            </TableHead>
                             <TableHead className="cursor-pointer" onClick={() => handleSort("resource_group")}>
                                 <div className="flex items-center">Resource Group <SortIcon column="resource_group" /></div>
                             </TableHead>
@@ -199,7 +204,7 @@ export function ResourceList({ changes, groupBy = "none" }: ResourceListProps) {
                         {groupBy === "none" && flatItems && (
                             <>
                                 {flatItems.length === 0 && (
-                                    <TableRow><TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No resources match.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={7} className="h-24 text-center text-muted-foreground">No resources match.</TableCell></TableRow>
                                 )}
                                 {flatItems.map(renderRow)}
                             </>
@@ -214,7 +219,7 @@ export function ResourceList({ changes, groupBy = "none" }: ResourceListProps) {
                                         className="bg-zinc-50/80 hover:bg-zinc-100 cursor-pointer"
                                         onClick={() => toggleGroup(group)}
                                     >
-                                        <TableCell colSpan={6}>
+                                        <TableCell colSpan={7}>
                                             <div className="flex items-center font-medium text-sm text-zinc-700 py-1">
                                                 {isExpanded ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronRight className="h-4 w-4 mr-2" />}
                                                 {group}
