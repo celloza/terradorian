@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
+import { groupEnvironments } from "@/lib/utils"
 
 export default function ExplorePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -25,6 +26,8 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
     // Fetch ALL plans
     const { data: plans } = useSWR(listPlans(id), fetcher)
     const { data: components } = useSWR(listComponents(id), fetcher)
+    const { data: projects } = useSWR("/list_projects", fetcher)
+    const project = useMemo(() => projects?.find((p: any) => p.id === id), [projects, id])
 
     const componentNameById = useMemo(() => {
         const map = new Map<string, string>()
@@ -50,6 +53,10 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
     // Filter State
     const [visibleEnvs, setVisibleEnvs] = useState<Set<string>>(new Set())
 
+    const groupedEnvironments = useMemo(() => {
+        return groupEnvironments(availableEnvs, project?.environments_config)
+    }, [availableEnvs, project?.environments_config])
+
     // Init Visible Envs (Default All)
     useEffect(() => {
         if (availableEnvs.length > 0 && visibleEnvs.size === 0) {
@@ -61,6 +68,34 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
         const next = new Set(visibleEnvs)
         if (next.has(env)) next.delete(env)
         else next.add(env)
+        setVisibleEnvs(next)
+    }
+
+    const getGroupEnvironments = (groupName: string) => {
+        const regions = groupedEnvironments[groupName] || {}
+        return Object.values(regions).flat()
+    }
+
+    const getGroupCheckState = (groupName: string): boolean | "indeterminate" => {
+        const envsInGroup = getGroupEnvironments(groupName)
+        if (envsInGroup.length === 0) return false
+
+        const selectedCount = envsInGroup.filter((env) => visibleEnvs.has(env)).length
+        if (selectedCount === 0) return false
+        if (selectedCount === envsInGroup.length) return true
+        return "indeterminate"
+    }
+
+    const toggleGroup = (groupName: string, checked: boolean) => {
+        const envsInGroup = getGroupEnvironments(groupName)
+        const next = new Set(visibleEnvs)
+
+        if (checked) {
+            envsInGroup.forEach((env) => next.add(env))
+        } else {
+            envsInGroup.forEach((env) => next.delete(env))
+        }
+
         setVisibleEnvs(next)
     }
 
@@ -129,19 +164,37 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
                                 )}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[200px] p-0" align="end">
+                        <PopoverContent className="w-[300px] p-0" align="end">
                             <div className="p-2 space-y-2">
                                 <div className="flex items-center space-x-2 pb-2 border-b">
                                     <Label className="text-xs font-semibold">Filter Environments</Label>
                                 </div>
-                                {availableEnvs.map(env => (
-                                    <div key={env} className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id={`filter-${env}`}
-                                            checked={visibleEnvs.has(env)}
-                                            onCheckedChange={() => toggleEnv(env)}
-                                        />
-                                        <Label htmlFor={`filter-${env}`} className="text-sm font-normal cursor-pointer w-full">{env}</Label>
+                                {Object.entries(groupedEnvironments).sort(([a], [b]) => a.localeCompare(b)).map(([groupName, regions]) => (
+                                    <div key={groupName} className="space-y-1">
+                                        <div className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={`group-${groupName}`}
+                                                checked={getGroupCheckState(groupName)}
+                                                onCheckedChange={(checked) => toggleGroup(groupName, checked === true)}
+                                            />
+                                            <Label htmlFor={`group-${groupName}`} className="text-sm font-semibold cursor-pointer w-full">{groupName}</Label>
+                                        </div>
+
+                                        {Object.entries(regions).sort(([a], [b]) => a.localeCompare(b)).map(([region, envs]) => (
+                                            <div key={`${groupName}-${region}`} className="pl-5 space-y-1">
+                                                <p className="text-[11px] text-muted-foreground">{region}</p>
+                                                {envs.map((env) => (
+                                                    <div key={env} className="flex items-center space-x-2 pl-2">
+                                                        <Checkbox
+                                                            id={`filter-${env}`}
+                                                            checked={visibleEnvs.has(env)}
+                                                            onCheckedChange={() => toggleEnv(env)}
+                                                        />
+                                                        <Label htmlFor={`filter-${env}`} className="text-sm font-normal cursor-pointer w-full">{env}</Label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ))}
                                     </div>
                                 ))}
                                 {availableEnvs.length === 0 && <div className="text-xs text-muted-foreground">No environments data.</div>}

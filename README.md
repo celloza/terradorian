@@ -6,6 +6,7 @@ Terradorian is a comprehensive dashboard platform designed to manage and visuali
 
 *   **Multi-Project Management**: Organize infrastructure into Projects and Components.
 *   **Drift Detection**: Automatically analyze Terraform plans to detect `create`, `update`, and `delete` actions.
+*   **Ingestion Comparison Tool**: Compare two ingestions side by side with Terraform-aware resource diffs.
 *   **Hybrid Storage**: Handles large Terraform plans by splitting them between Cosmos DB (metadata) and Blob Storage (full archival).
 *   **Visual Dashboard**: Interactive graphs showing drift trends and resource change breakdowns.
 *   **Branch Tracking**: Associate Terraform plans with Git branches to filter and view statistics across different code streams.

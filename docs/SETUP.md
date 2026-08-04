@@ -60,3 +60,11 @@ You can use the `manual_tests/test_ingest.py` script (if you restored it) or sim
 2.  Create a Project and Component.
 3.  Go to the Component page.
 4.  Click "Upload Plan" and select a JSON file from `samples/`.
+
+## 5. Compare Ingestions
+
+After uploading multiple plans, open the project context and use **Tools -> Compare Ingestions**.
+
+1. Select a left ingestion with guided filters (branch, group, environment, component).
+2. Select a right ingestion with the same guided filter flow.
+3. Review the bottom Terraform Delta panel for added, removed, and changed resource addresses.

@@ -7,7 +7,7 @@ import useSWR from "swr"
 import { fetcher } from "@/lib/api"
 import { cn, groupEnvironments } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Compass, Settings, Activity, ChevronRight, ChevronDown } from "lucide-react"
+import { LayoutDashboard, Compass, Settings, Activity, ChevronRight, ChevronDown, Layers } from "lucide-react"
 import packageJson from "../package.json"
 
 export function ContextSidebar() {
@@ -48,6 +48,7 @@ export function ContextSidebar() {
     const isOverview = pathname === `/p/${projectId}/overview`
     const isSettings = pathname.includes("/settings")
     const isExplore = pathname.includes("/explore")
+    const isCompare = pathname.includes("/compare")
 
     return (
         <div className="w-64 bg-[#0F1115] text-white border-r border-[#1F2125] flex flex-col h-full pt-4">
@@ -165,6 +166,20 @@ export function ContextSidebar() {
                         <Link href={`/p/${projectId}/explore`}>
                             <Compass className="mr-3 h-4 w-4" />
                             Explore
+                        </Link>
+                    </Button>
+
+                    <Button
+                        variant="ghost"
+                        asChild
+                        className={cn(
+                            "w-full justify-start text-zinc-400 hover:text-white hover:bg-zinc-800",
+                            isCompare && "bg-[#2D313A] text-white font-medium hover:bg-[#2D313A]"
+                        )}
+                    >
+                        <Link href={`/p/${projectId}/compare`}>
+                            <Layers className="mr-3 h-4 w-4" />
+                            Compare Ingestions
                         </Link>
                     </Button>
                 </div>
