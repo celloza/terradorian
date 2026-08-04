@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ArrowLeftRight, CheckCircle2, GitBranch, Layers, PackageSearch, Sparkles } from "lucide-react"
@@ -170,6 +171,55 @@ function rowTone(kind: DiffKind): string {
     if (kind === "removed") return "bg-rose-50/80"
     if (kind === "changed") return "bg-amber-50/70"
     return ""
+}
+
+function CompareSkeleton() {
+    return (
+        <div className="p-6 space-y-6">
+            <div className="space-y-2">
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-[620px]" />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="rounded-xl border bg-card p-6 space-y-4">
+                    <Skeleton className="h-5 w-44" />
+                    <Skeleton className="h-4 w-72" />
+                    <div className="grid grid-cols-2 gap-3">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                    <Skeleton className="h-56 w-full" />
+                </div>
+
+                <div className="rounded-xl border bg-card p-6 space-y-4">
+                    <Skeleton className="h-5 w-44" />
+                    <Skeleton className="h-4 w-72" />
+                    <div className="grid grid-cols-2 gap-3">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                    <Skeleton className="h-56 w-full" />
+                </div>
+            </div>
+
+            <div className="rounded-xl border bg-card p-6 space-y-4">
+                <Skeleton className="h-5 w-56" />
+                <Skeleton className="h-4 w-96" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                </div>
+                <Skeleton className="h-72 w-full" />
+            </div>
+        </div>
+    )
 }
 
 function IngestionSelectorPanel({
@@ -451,11 +501,13 @@ function IngestionSelectorPanel({
 export default function CompareIngestionsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
 
-    const { data: plans } = useSWR(listPlans(id, undefined, undefined, undefined, "all"), fetcher)
-    const { data: components } = useSWR(listComponents(id), fetcher)
-    const { data: projects } = useSWR("/list_projects", fetcher)
+    const { data: plans, isLoading: plansLoading } = useSWR(listPlans(id, undefined, undefined, undefined, "all"), fetcher)
+    const { data: components, isLoading: componentsLoading } = useSWR(listComponents(id), fetcher)
+    const { data: projects, isLoading: projectsLoading } = useSWR("/list_projects", fetcher)
 
     const project = useMemo(() => projects?.find((p: any) => p.id === id), [projects, id])
+
+    const isInitialLoading = (plansLoading || componentsLoading || projectsLoading) && (!plans || !components || !projects)
 
     const componentById = useMemo(() => {
         const map = new Map<string, string>()
@@ -535,6 +587,10 @@ export default function CompareIngestionsPage({ params }: { params: Promise<{ id
         const envs = Array.from(new Set(enrichedPlans.map((p) => p.environment || "unknown")))
         return groupEnvironments(envs, project?.environments_config)
     }, [enrichedPlans, project?.environments_config])
+
+    if (isInitialLoading) {
+        return <CompareSkeleton />
+    }
 
     return (
         <div className="p-6 space-y-6">

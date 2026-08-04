@@ -1,22 +1,45 @@
 "use client"
 
 import { useState, useMemo, use, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import { fetcher, listComponents, listPlans } from "@/lib/api"
 import { ResourceList, ResourceChange } from "@/components/resource-list"
-import { formatDistanceToNow } from "date-fns"
-import { Clock, Layers, Box, Filter } from "lucide-react"
+import { Filter } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { groupEnvironments } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
+
+function ExploreSkeleton() {
+    return (
+        <div className="p-6 h-full flex flex-col space-y-6">
+            <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                    <Skeleton className="h-8 w-64" />
+                    <Skeleton className="h-4 w-96" />
+                </div>
+                <div className="flex items-center gap-4">
+                    <Skeleton className="h-8 w-36" />
+                    <Skeleton className="h-8 w-40" />
+                </div>
+            </div>
+
+            <div className="flex-1 bg-white rounded-lg border shadow-sm p-6 overflow-auto space-y-3">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-5/6" />
+                <Skeleton className="h-8 w-3/4" />
+            </div>
+        </div>
+    )
+}
 
 export default function ExplorePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
-    const searchParams = useSearchParams()
     // Ignore URL env param for fetching, we want ALL to enable client-side filter
     // const env = searchParams.get("env") || "dev" 
 
@@ -24,10 +47,12 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
     const [groupBy, setGroupBy] = useState<"none" | "resource_group" | "type" | "environment">("resource_group")
 
     // Fetch ALL plans
-    const { data: plans } = useSWR(listPlans(id), fetcher)
-    const { data: components } = useSWR(listComponents(id), fetcher)
-    const { data: projects } = useSWR("/list_projects", fetcher)
+    const { data: plans, isLoading: plansLoading } = useSWR(listPlans(id), fetcher)
+    const { data: components, isLoading: componentsLoading } = useSWR(listComponents(id), fetcher)
+    const { data: projects, isLoading: projectsLoading } = useSWR("/list_projects", fetcher)
     const project = useMemo(() => projects?.find((p: any) => p.id === id), [projects, id])
+
+    const isInitialLoading = (plansLoading || componentsLoading || projectsLoading) && (!plans || !components || !projects)
 
     const componentNameById = useMemo(() => {
         const map = new Map<string, string>()
@@ -139,8 +164,9 @@ export default function ExplorePage({ params }: { params: Promise<{ id: string }
         return flatChanges
     }, [plans, visibleEnvs, componentNameById])
 
-    // Calc stats
-    const totalResources = resourceChanges.length
+    if (isInitialLoading) {
+        return <ExploreSkeleton />
+    }
 
     return (
         <div className="p-6 h-full flex flex-col space-y-6">
