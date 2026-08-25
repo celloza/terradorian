@@ -14,3 +14,5 @@ from blueprints.reporting import bp as reporting_bp
 app.register_functions(reporting_bp)
 from blueprints.slack_report import bp as slack_report_bp
 app.register_functions(slack_report_bp)
+from blueprints.report import bp as report_bp
+app.register_functions(report_bp)

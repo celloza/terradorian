@@ -27,6 +27,54 @@ Manually ingests a Terraform plan JSON.
     4.  Prunes JSON (strips `before`/`after` states, extracting `resource_group`).
     5.  Saves pruned record to **Cosmos DB**.
 
+### Reporting
+
+#### `GET /report/summary`
+Returns a pre-aggregated management summary for a project — same stats shown on the dashboard, computed server-side.
+
+*   **Auth**: `Authorization: Bearer tdp_<project_id>_<secret>` (project PAT) or `x-internal-secret` header.
+*   **Query Params**:
+    *   `project_id` — required when authenticating via internal secret; inferred from PAT otherwise.
+    *   `env` (optional) — filter to a single environment name.
+    *   `days` (optional, default: `30`) — trailing window for staleness classification. Use `all` for no cutoff.
+*   **Returns**:
+    ```json
+    {
+      "project_id": "...",
+      "generated_at": "2026-08-25T10:00:00Z",
+      "environments": {
+        "dev": {
+          "current_stats": {
+            "alignment_score": 94,
+            "to_create": 2,
+            "to_update": 1,
+            "to_delete": 0,
+            "unchanged": 47,
+            "total": 50
+          },
+          "components": {
+            "terraform-core": {
+              "last_plan_at": "2026-08-24T09:12:00Z",
+              "age_days": 1,
+              "stale": false,
+              "to_create": 0,
+              "to_update": 1,
+              "to_delete": 0,
+              "unchanged": 12,
+              "total": 13,
+              "in_sync": false
+            }
+          }
+        }
+      }
+    }
+    ```
+*   **Notes**:
+    *   Uses the **latest plan per component per environment** (same logic as the dashboard).
+    *   Components with no ingested plan appear with `stale: true` and `null` stat fields.
+    *   Components whose latest plan is older than the `days` window are also marked `stale: true` and are excluded from the environment-level rollup counts and `alignment_score`.
+    *   `alignment_score` = `round(unchanged / total * 100)`, or `100` when no resources are tracked.
+
 ### Plans
 
 #### `GET /list_plans`
