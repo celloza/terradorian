@@ -94,6 +94,12 @@ export async function proxy(req: NextRequest) {
         return NextResponse.next()
     }
 
+    // PAT-authenticated API requests bypass session auth; the function validates the token.
+    const authHeader = req.headers.get('authorization') ?? ''
+    if (authHeader.startsWith('Bearer tdp_')) {
+        return NextResponse.next()
+    }
+
     if (authMode === 'easyauth') {
         const easyAuthPrincipal = req.headers.get('x-ms-client-principal')
         const easyAuthPrincipalId = req.headers.get('x-ms-client-principal-id')
