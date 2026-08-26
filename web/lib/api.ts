@@ -229,6 +229,16 @@ export const calculateDiskUsage = async (project_id: string) => {
     return res.json();
 };
 
+export const exportAssetRegister = async (project_id: string, env: string, branch: string) => {
+    const url = `${API_BASE}/report/asset-register?project_id=${project_id}&env=${encodeURIComponent(env)}&branch=${encodeURIComponent(branch)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to generate asset register");
+    }
+    return res.blob();
+};
+
 export const exportPlans = async (project_id: string, environments: string[], branch?: string) => {
     let url = `${API_BASE}/export_plans?project_id=${project_id}&environment=${environments.join(',')}`;
     if (branch) {

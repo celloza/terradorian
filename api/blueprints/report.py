@@ -1,4 +1,6 @@
 import azure.functions as func
+import csv
+import io
 import json
 import logging
 import os
@@ -8,8 +10,23 @@ from shared.auth import verify_pat
 
 bp = func.Blueprint()
 
+ASSET_REGISTER_COLUMNS = [
+    'environment', 'component', 'resource_group',
+    'resource_type', 'resource_name', 'resource_address', 'plan_timestamp',
+]
 
-def _classify_actions(resource_changes: list) -> tuple[int, int, int, int]:
+
+def _resolve_auth(req: func.HttpRequest) -> tuple[bool, dict | None]:
+    """Returns (is_authorized, project_doc). project_doc is set only when auth is via PAT."""
+    internal_secret = os.environ.get('INTERNAL_SECRET')
+    if internal_secret and req.headers.get('x-internal-secret') == internal_secret:
+        return True, None
+    auth_header = req.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        project_doc = verify_pat(auth_header.split(' ', 1)[1])
+        if project_doc:
+            return True, project_doc
+    return False, None
     """Mirrors the action classification logic in project-dashboard.tsx."""
     to_create = to_update = to_delete = unchanged = 0
     for rc in resource_changes:
@@ -30,20 +47,7 @@ def _classify_actions(resource_changes: list) -> tuple[int, int, int, int]:
 
 @bp.route(route="report/summary", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
 def report_summary(req: func.HttpRequest) -> func.HttpResponse:
-    is_authorized = False
-    project_doc = None
-
-    internal_secret = os.environ.get('INTERNAL_SECRET')
-    if internal_secret and req.headers.get('x-internal-secret') == internal_secret:
-        is_authorized = True
-
-    if not is_authorized:
-        auth_header = req.headers.get('Authorization', '')
-        if auth_header.startswith('Bearer '):
-            project_doc = verify_pat(auth_header.split(' ', 1)[1])
-            if project_doc:
-                is_authorized = True
-
+    is_authorized, project_doc = _resolve_auth(req)
     if not is_authorized:
         return func.HttpResponse('Unauthorized', status_code=401)
 
@@ -201,4 +205,89 @@ def report_summary(req: func.HttpRequest) -> func.HttpResponse:
 
     except Exception as e:
         logging.error(f"report_summary error: {e}")
+        return func.HttpResponse(f"Error: {e}", status_code=500)
+
+
+@bp.route(route="report/asset-register", auth_level=func.AuthLevel.ANONYMOUS, methods=["GET"])
+def asset_register(req: func.HttpRequest) -> func.HttpResponse:
+    is_authorized, project_doc = _resolve_auth(req)
+    if not is_authorized:
+        return func.HttpResponse('Unauthorized', status_code=401)
+
+    project_id = req.params.get('project_id')
+    if not project_id and project_doc:
+        project_id = project_doc['id']
+    if not project_id:
+        return func.HttpResponse('project_id required', status_code=400)
+
+    env = req.params.get('env')
+    if not env:
+        return func.HttpResponse('env required', status_code=400)
+
+    branch = req.params.get('branch', 'develop')
+
+    try:
+        comp_container = get_container('components')
+        components = list(comp_container.query_items(
+            query='SELECT c.id, c.name, c.excluded_environments FROM c WHERE c.project_id = @pid',
+            parameters=[{'name': '@pid', 'value': project_id}],
+            enable_cross_partition_query=True
+        ))
+
+        plan_container = get_container('plans')
+        output = io.StringIO()
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+        writer.writerow(ASSET_REGISTER_COLUMNS)
+
+        for comp in components:
+            if env in comp.get('excluded_environments', []):
+                continue
+
+            plans = list(plan_container.query_items(
+                query=(
+                    "SELECT TOP 1 c.timestamp, c.terraform_plan.resource_changes AS resource_changes "
+                    "FROM c WHERE c.component_id = @cid AND c.environment = @env AND c.branch = @branch "
+                    "AND (NOT IS_DEFINED(c.is_pending_approval) OR c.is_pending_approval = false) "
+                    "ORDER BY c.timestamp DESC"
+                ),
+                parameters=[
+                    {'name': '@cid', 'value': comp['id']},
+                    {'name': '@env', 'value': env},
+                    {'name': '@branch', 'value': branch},
+                ],
+                enable_cross_partition_query=True
+            ))
+
+            if not plans:
+                continue
+
+            plan = plans[0]
+            plan_timestamp = plan.get('timestamp', '')
+            resource_changes = plan.get('resource_changes') or []
+
+            for rc in resource_changes:
+                address = rc.get('address', '')
+                # Skip data sources — they reference resources outside this component
+                if address.startswith('data.'):
+                    continue
+                writer.writerow([
+                    env,
+                    comp['name'],
+                    rc.get('resource_group', ''),
+                    rc.get('type', ''),
+                    rc.get('name', ''),
+                    address,
+                    plan_timestamp,
+                ])
+
+        filename = f"asset-register-{env}-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.csv"
+        return func.HttpResponse(
+            body=output.getvalue(),
+            status_code=200,
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'},
+        )
+
+    except Exception as e:
+        logging.error(f"asset_register error: {e}")
         return func.HttpResponse(f"Error: {e}", status_code=500)

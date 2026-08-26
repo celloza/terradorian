@@ -4,7 +4,7 @@ import { use, useState, useEffect } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import useSWR from "swr"
-import { fetcher, listPlans, deletePlan, exportPlans } from "@/lib/api"
+import { fetcher, listPlans, deletePlan, exportPlans, exportAssetRegister } from "@/lib/api"
 import { ProjectDashboard } from "@/components/project-dashboard"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -90,6 +90,7 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
     const [fullPlan, setFullPlan] = useState<any>(null)
     const [exporting, setExporting] = useState(false)
     const [exportOpen, setExportOpen] = useState(false)
+    const [assetRegisterLoading, setAssetRegisterLoading] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
 
     const ITEMS_PER_PAGE = 10
@@ -210,6 +211,34 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                             ))}
                         </SelectContent>
                     </Select>
+                    <Button
+                        variant="outline"
+                        disabled={assetRegisterLoading || !apiEnv}
+                        onClick={async () => {
+                            if (!apiEnv) return
+                            setAssetRegisterLoading(true)
+                            try {
+                                const blob = await exportAssetRegister(id, apiEnv, branch)
+                                const url = URL.createObjectURL(blob)
+                                const a = document.createElement('a')
+                                a.href = url
+                                a.download = `asset-register-${apiEnv}-${new Date().toISOString().slice(0, 10)}.csv`
+                                document.body.appendChild(a)
+                                a.click()
+                                a.remove()
+                                URL.revokeObjectURL(url)
+                            } catch (e: any) {
+                                toast.error(e?.message || "Failed to generate asset register")
+                            } finally {
+                                setAssetRegisterLoading(false)
+                            }
+                        }}
+                    >
+                        {assetRegisterLoading
+                            ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            : <Download className="mr-2 h-4 w-4" />}
+                        Asset Register
+                    </Button>
                     <Button
                         variant="outline"
                         disabled={!filteredPlans?.length}
