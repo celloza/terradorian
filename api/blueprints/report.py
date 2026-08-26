@@ -220,13 +220,31 @@ def asset_register(req: func.HttpRequest) -> func.HttpResponse:
     if not project_id:
         return func.HttpResponse('project_id required', status_code=400)
 
-    env = req.params.get('env')
-    if not env:
-        return func.HttpResponse('env required', status_code=400)
+    group_param = req.params.get('group')
+    region_param = req.params.get('region')
+    env_param = req.params.get('env')
 
     branch = req.params.get('branch', 'develop')
 
     try:
+        if group_param:
+            proj_container = get_container('projects')
+            proj = proj_container.read_item(item=project_id, partition_key=project_id)
+            envs_config = proj.get('environments_config', {})
+            envs = [
+                e for e in proj.get('environments', [])
+                if envs_config.get(e, {}).get('group', 'Ungrouped') == group_param
+                and (not region_param or envs_config.get(e, {}).get('region', 'Global') == region_param)
+            ]
+            if not envs:
+                return func.HttpResponse(
+                    f"No environments found for group '{group_param}'", status_code=404
+                )
+        elif env_param:
+            envs = [e.strip() for e in env_param.split(',') if e.strip()]
+        else:
+            return func.HttpResponse('env or group required', status_code=400)
+
         comp_container = get_container('components')
         components = list(comp_container.query_items(
             query='SELECT c.id, c.name, c.excluded_environments FROM c WHERE c.project_id = @pid',
@@ -239,48 +257,53 @@ def asset_register(req: func.HttpRequest) -> func.HttpResponse:
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(ASSET_REGISTER_COLUMNS)
 
-        for comp in components:
-            if env in comp.get('excluded_environments', []):
-                continue
-
-            plans = list(plan_container.query_items(
-                query=(
-                    "SELECT TOP 1 c.timestamp, c.terraform_plan.resource_changes AS resource_changes "
-                    "FROM c WHERE c.component_id = @cid AND c.environment = @env AND c.branch = @branch "
-                    "AND (NOT IS_DEFINED(c.is_pending_approval) OR c.is_pending_approval = false) "
-                    "ORDER BY c.timestamp DESC"
-                ),
-                parameters=[
-                    {'name': '@cid', 'value': comp['id']},
-                    {'name': '@env', 'value': env},
-                    {'name': '@branch', 'value': branch},
-                ],
-                enable_cross_partition_query=True
-            ))
-
-            if not plans:
-                continue
-
-            plan = plans[0]
-            plan_timestamp = plan.get('timestamp', '')
-            resource_changes = plan.get('resource_changes') or []
-
-            for rc in resource_changes:
-                address = rc.get('address', '')
-                # Skip data sources — they reference resources outside this component
-                if address.startswith('data.'):
+        for env in envs:
+            for comp in components:
+                if env in comp.get('excluded_environments', []):
                     continue
-                writer.writerow([
-                    env,
-                    comp['name'],
-                    rc.get('resource_group', ''),
-                    rc.get('type', ''),
-                    rc.get('name', ''),
-                    address,
-                    plan_timestamp,
-                ])
 
-        filename = f"asset-register-{env}-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.csv"
+                plans = list(plan_container.query_items(
+                    query=(
+                        "SELECT TOP 1 c.timestamp, c.terraform_plan.resource_changes AS resource_changes "
+                        "FROM c WHERE c.component_id = @cid AND c.environment = @env AND c.branch = @branch "
+                        "AND (NOT IS_DEFINED(c.is_pending_approval) OR c.is_pending_approval = false) "
+                        "ORDER BY c.timestamp DESC"
+                    ),
+                    parameters=[
+                        {'name': '@cid', 'value': comp['id']},
+                        {'name': '@env', 'value': env},
+                        {'name': '@branch', 'value': branch},
+                    ],
+                    enable_cross_partition_query=True
+                ))
+
+                if not plans:
+                    continue
+
+                plan = plans[0]
+                plan_timestamp = plan.get('timestamp', '')
+                resource_changes = plan.get('resource_changes') or []
+
+                for rc in resource_changes:
+                    address = rc.get('address', '')
+                    # Skip data sources — they reference resources outside this component
+                    if address.startswith('data.'):
+                        continue
+                    writer.writerow([
+                        env,
+                        comp['name'],
+                        rc.get('resource_group', ''),
+                        rc.get('type', ''),
+                        rc.get('name', ''),
+                        address,
+                        plan_timestamp,
+                    ])
+
+        if group_param:
+            label = f"{group_param}-{region_param}" if region_param else group_param
+        else:
+            label = env_param.replace(',', '-') if len(envs) > 1 else envs[0]
+        filename = f"asset-register-{label}-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.csv"
         return func.HttpResponse(
             body=output.getvalue(),
             status_code=200,

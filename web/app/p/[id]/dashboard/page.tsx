@@ -213,16 +213,19 @@ export default function DashboardPage({ params }: { params: Promise<{ id: string
                     </Select>
                     <Button
                         variant="outline"
-                        disabled={assetRegisterLoading || !apiEnv}
+                        disabled={assetRegisterLoading}
                         onClick={async () => {
-                            if (!apiEnv) return
                             setAssetRegisterLoading(true)
                             try {
-                                const blob = await exportAssetRegister(id, apiEnv, branch)
+                                const scope = group
+                                    ? { group, ...(region ? { region } : {}) }
+                                    : { env: apiEnv ?? targetEnvs[0] }
+                                const label = group ? (region ? `${group}-${region}` : group) : (apiEnv ?? targetEnvs[0])
+                                const blob = await exportAssetRegister(id, branch, scope)
                                 const url = URL.createObjectURL(blob)
                                 const a = document.createElement('a')
                                 a.href = url
-                                a.download = `asset-register-${apiEnv}-${new Date().toISOString().slice(0, 10)}.csv`
+                                a.download = `asset-register-${label}-${new Date().toISOString().slice(0, 10)}.csv`
                                 document.body.appendChild(a)
                                 a.click()
                                 a.remove()

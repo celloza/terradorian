@@ -229,8 +229,18 @@ export const calculateDiskUsage = async (project_id: string) => {
     return res.json();
 };
 
-export const exportAssetRegister = async (project_id: string, env: string, branch: string) => {
-    const url = `${API_BASE}/report/asset-register?project_id=${project_id}&env=${encodeURIComponent(env)}&branch=${encodeURIComponent(branch)}`;
+export const exportAssetRegister = async (
+    project_id: string,
+    branch: string,
+    scope: { group: string; region?: string } | { env: string }
+) => {
+    let url = `${API_BASE}/report/asset-register?project_id=${project_id}&branch=${encodeURIComponent(branch)}`;
+    if ('group' in scope) {
+        url += `&group=${encodeURIComponent(scope.group)}`;
+        if (scope.region) url += `&region=${encodeURIComponent(scope.region)}`;
+    } else {
+        url += `&env=${encodeURIComponent(scope.env)}`;
+    }
     const res = await fetch(url);
     if (!res.ok) {
         const errorText = await res.text();
