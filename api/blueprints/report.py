@@ -27,6 +27,9 @@ def _resolve_auth(req: func.HttpRequest) -> tuple[bool, dict | None]:
         if project_doc:
             return True, project_doc
     return False, None
+
+
+def _classify_actions(resource_changes: list) -> tuple[int, int, int, int]:
     """Mirrors the action classification logic in project-dashboard.tsx."""
     to_create = to_update = to_delete = unchanged = 0
     for rc in resource_changes:
