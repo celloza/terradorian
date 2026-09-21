@@ -61,6 +61,8 @@ def report_summary(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse('project_id required', status_code=400)
 
     env_filter = req.params.get('env')
+    group_filter = req.params.get('group')
+    region_filter = req.params.get('region')
     days_param = req.params.get('days', '30')
 
     cutoff_ts = None
@@ -83,12 +85,25 @@ def report_summary(req: func.HttpRequest) -> func.HttpResponse:
             project_doc = proj_container.read_item(item=project_id, partition_key=project_id)
 
         environments = project_doc.get('environments', ['dev'])
-        if env_filter:
-            if env_filter not in environments:
+        if group_filter:
+            envs_config = project_doc.get('environments_config', {})
+            environments = [
+                e for e in environments
+                if envs_config.get(e, {}).get('group', 'Ungrouped') == group_filter
+                and (not region_filter or envs_config.get(e, {}).get('region', 'Global') == region_filter)
+            ]
+            if not environments:
                 return func.HttpResponse(
-                    f"Environment '{env_filter}' not found in project", status_code=404
+                    f"No environments found for group '{group_filter}'", status_code=404
                 )
-            environments = [env_filter]
+        elif env_filter:
+            requested = [e.strip() for e in env_filter.split(',') if e.strip()]
+            unknown = [e for e in requested if e not in environments]
+            if unknown:
+                return func.HttpResponse(
+                    f"Environment(s) not found in project: {', '.join(unknown)}", status_code=404
+                )
+            environments = requested
 
         comp_container = get_container('components')
         components = list(comp_container.query_items(

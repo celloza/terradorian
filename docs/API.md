@@ -36,6 +36,8 @@ Returns a pre-aggregated management summary for a project — same stats shown o
 *   **Query Params**:
     *   `project_id` — required when authenticating via internal secret; inferred from PAT otherwise.
     *   `env` (optional) — filter to a single environment name.
+    *   `group` (optional) — filter to all environments sharing a group name (as configured via `environments_config`, e.g. "prod" covers `prod`, `prod-uks`, `prod-ukw`). Takes precedence over `env` when both are supplied.
+    *   `region` (optional) — further narrows `group` to a specific region within that group.
     *   `days` (optional, default: `30`) — trailing window for staleness classification. Use `all` for no cutoff.
 *   **Returns**:
     ```json
