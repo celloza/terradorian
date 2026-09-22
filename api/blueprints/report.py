@@ -196,7 +196,7 @@ def report_summary(req: func.HttpRequest) -> func.HttpResponse:
                 + env_counts['to_delete'] + env_counts['unchanged']
             )
             alignment_score = (
-                round((env_counts['unchanged'] / env_total) * 100) if env_total > 0 else 100
+                round((env_counts['unchanged'] / env_total) * 100, 1) if env_total > 0 else 100.0
             )
 
             result_envs[env] = {
